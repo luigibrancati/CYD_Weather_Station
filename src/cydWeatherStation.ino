@@ -460,6 +460,8 @@ void lv_create_main_gui(void) {
   lv_obj_t * weather_image_temperature = lv_image_create(tab_current);
   lv_image_set_src(weather_image_temperature, &image_weather_temperature);
   lv_obj_align(weather_image_temperature, LV_ALIGN_CENTER, -92, -60);
+  lv_obj_set_style_image_recolor(weather_image_temperature, lv_palette_main(LV_PALETTE_RED), 0);
+  lv_obj_set_style_image_recolor_opa(weather_image_temperature, LV_OPA_COVER, 0);
   current_weather.text_label_temperature = lv_label_create(tab_current);
   lv_obj_align(current_weather.text_label_temperature, LV_ALIGN_CENTER, -42, -60);
   lv_obj_set_style_text_font((lv_obj_t*) current_weather.text_label_temperature, &lv_font_montserrat_18, 0);
@@ -467,6 +469,8 @@ void lv_create_main_gui(void) {
   lv_obj_t * weather_image_max_temperature = lv_image_create(tab_forecast);
   lv_image_set_src(weather_image_max_temperature, &image_weather_temperature);
   lv_obj_align(weather_image_max_temperature, LV_ALIGN_CENTER, 68, -60);
+  lv_obj_set_style_image_recolor(weather_image_max_temperature, lv_palette_main(LV_PALETTE_RED), 0);
+  lv_obj_set_style_image_recolor_opa(weather_image_max_temperature, LV_OPA_COVER, 0);
   forecast_weather.text_label_max_temperature = lv_label_create(tab_forecast);
   lv_obj_align(forecast_weather.text_label_max_temperature, LV_ALIGN_CENTER, 112, -60);
   lv_obj_set_style_text_font((lv_obj_t*) forecast_weather.text_label_max_temperature, &lv_font_montserrat_18, 0);
@@ -474,6 +478,8 @@ void lv_create_main_gui(void) {
   lv_obj_t * weather_image_min_temperature = lv_image_create(tab_forecast);
   lv_image_set_src(weather_image_min_temperature, &image_weather_temperature);
   lv_obj_align(weather_image_min_temperature, LV_ALIGN_CENTER, 68, -30);
+  lv_obj_set_style_image_recolor(weather_image_min_temperature, lv_palette_main(LV_PALETTE_BLUE), 0);
+  lv_obj_set_style_image_recolor_opa(weather_image_min_temperature, LV_OPA_COVER, 0);
   forecast_weather.text_label_min_temperature = lv_label_create(tab_forecast);
   lv_obj_align(forecast_weather.text_label_min_temperature, LV_ALIGN_CENTER, 112, -30);
   lv_obj_set_style_text_font((lv_obj_t*) forecast_weather.text_label_min_temperature, &lv_font_montserrat_18, 0);
@@ -482,6 +488,8 @@ void lv_create_main_gui(void) {
   lv_obj_t * weather_image_humidity = lv_image_create(tab_current);
   lv_image_set_src(weather_image_humidity, &image_weather_humidity);
   lv_obj_align(weather_image_humidity, LV_ALIGN_CENTER, -92, -30);
+  lv_obj_set_style_image_recolor(weather_image_humidity, lv_palette_main(LV_PALETTE_CYAN), 0);
+  lv_obj_set_style_image_recolor_opa(weather_image_humidity, LV_OPA_COVER, 0);
   current_weather.text_label_humidity = lv_label_create(tab_current);
   lv_obj_align(current_weather.text_label_humidity, LV_ALIGN_CENTER, -42, -30);
   lv_obj_set_style_text_font((lv_obj_t*) current_weather.text_label_humidity, &lv_font_montserrat_18, 0);
