@@ -367,7 +367,7 @@ JsonDocument get_weather_data() {
     HTTPClient http;
     // Construct the API endpoint
     String url = String(
-      "http://api.open-meteo.com/v1/forecast?latitude=" + latitude + "&longitude=" + longitude + "&current=relative_humidity_2m,temperature_2m,weather_code,apparent_temperature&hourly=relative_humidity_2m,precipitation_probability,temperature_2m,apparent_temperature,weather_code&timezone=" + timezone + "&forecast_days=3"
+      "http://api.open-meteo.com/v1/forecast?latitude=" + latitude + "&longitude=" + longitude + "&current=relative_humidity_2m,temperature_2m,weather_code,apparent_temperature&hourly=relative_humidity_2m,precipitation_probability,temperature_2m,apparent_temperature,weather_code&timezone=" + timezone + "&forecast_days=1"
     );
     Serial.print("Connecting to Open Meteo API");
     Serial.println(url);
@@ -443,6 +443,7 @@ void lv_create_main_gui(void) {
   LV_IMAGE_DECLARE(image_weather_snow);
   LV_IMAGE_DECLARE(image_weather_night);
   LV_IMAGE_DECLARE(image_weather_temperature);
+  LV_IMAGE_DECLARE(image_weather_temperature_low);
   LV_IMAGE_DECLARE(image_weather_humidity);
 
   Serial.println("Create the main screen");
@@ -453,7 +454,7 @@ void lv_create_main_gui(void) {
 
   /*Add 3 tabs (the tabs are page (lv_page) and can be scrolled*/
   tab_current = lv_tabview_add_tab(tabview, "Current");
-  tab_forecast = lv_tabview_add_tab(tabview, "Forecast");
+  tab_forecast = lv_tabview_add_tab(tabview, "Today Forecast");
 
   Serial.println("Labels for date");
   current_weather.text_label_date = lv_label_create(tab_current);
@@ -481,7 +482,7 @@ void lv_create_main_gui(void) {
   lv_obj_set_style_text_font((lv_obj_t*) current_weather.text_label_temperature, &lv_font_montserrat_18, 0);
 
   lv_obj_t * weather_image_min_temperature = lv_image_create(tab_forecast);
-  lv_image_set_src(weather_image_min_temperature, &image_weather_temperature);
+  lv_image_set_src(weather_image_min_temperature, &image_weather_temperature_low);
   lv_obj_align(weather_image_min_temperature, LV_ALIGN_CENTER, TEMPERATURE_IMAGE_POS_X, TEMPERATURE_IMAGE_POS_Y);
   lv_obj_set_style_image_recolor(weather_image_min_temperature, lv_palette_main(LV_PALETTE_BLUE), 0);
   lv_obj_set_style_image_recolor_opa(weather_image_min_temperature, LV_OPA_COVER, 0);
