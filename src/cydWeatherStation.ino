@@ -34,6 +34,20 @@
 #define XPT2046_MISO 39  // T_OUT
 #define XPT2046_CLK 25   // T_CLK
 #define XPT2046_CS 33    // T_CS
+// Weather image position
+#define WEATHER_IMAGE_POS_X -90
+#define WEATHER_IMAGE_POS_Y -10
+// Weather description position
+#define WEATHER_DESCRIPTION_POS_X 65
+#define WEATHER_DESCRIPTION_POS_Y 20
+// Temperature image position
+#define TEMPERATURE_IMAGE_POS_X 0
+#define TEMPERATURE_IMAGE_POS_Y -50
+// Humidity image position
+#define HUMIDITY_IMAGE_POS_X 0
+#define HUMIDITY_IMAGE_POS_Y -20
+
+#define ICONS_TEXT_PADDING 50
 
 #define DRAW_BUF_SIZE (SCREEN_WIDTH * SCREEN_HEIGHT / 10 * (LV_COLOR_DEPTH / 8))
 
@@ -449,64 +463,70 @@ void lv_create_main_gui(void) {
 
   Serial.println("Image and label for current weather");
   current_weather.weather_image = lv_image_create(tab_current);
-  lv_image_set_scale(current_weather.weather_image, 96);
-  lv_obj_align(current_weather.weather_image, LV_ALIGN_CENTER, -130, -50);
+  lv_image_set_scale(current_weather.weather_image, 228);
+  lv_obj_align(current_weather.weather_image, LV_ALIGN_CENTER, WEATHER_IMAGE_POS_X, WEATHER_IMAGE_POS_Y);
 
   forecast_weather.weather_image = lv_image_create(tab_forecast);
-  lv_image_set_scale(forecast_weather.weather_image, 96);
-  lv_obj_align(forecast_weather.weather_image, LV_ALIGN_CENTER, 30, -50);
+  lv_image_set_scale(current_weather.weather_image, 228);
+  lv_obj_align(forecast_weather.weather_image, LV_ALIGN_CENTER, WEATHER_IMAGE_POS_X, WEATHER_IMAGE_POS_Y);
 
   Serial.println("Image and label for temperature");
   lv_obj_t * weather_image_temperature = lv_image_create(tab_current);
   lv_image_set_src(weather_image_temperature, &image_weather_temperature);
-  lv_obj_align(weather_image_temperature, LV_ALIGN_CENTER, -92, -60);
+  lv_obj_align(weather_image_temperature, LV_ALIGN_CENTER, TEMPERATURE_IMAGE_POS_X, TEMPERATURE_IMAGE_POS_Y);
   lv_obj_set_style_image_recolor(weather_image_temperature, lv_palette_main(LV_PALETTE_RED), 0);
   lv_obj_set_style_image_recolor_opa(weather_image_temperature, LV_OPA_COVER, 0);
   current_weather.text_label_temperature = lv_label_create(tab_current);
-  lv_obj_align(current_weather.text_label_temperature, LV_ALIGN_CENTER, -42, -60);
+  lv_obj_align(current_weather.text_label_temperature, LV_ALIGN_CENTER, TEMPERATURE_IMAGE_POS_X + ICONS_TEXT_PADDING, TEMPERATURE_IMAGE_POS_Y);
   lv_obj_set_style_text_font((lv_obj_t*) current_weather.text_label_temperature, &lv_font_montserrat_18, 0);
-
-  lv_obj_t * weather_image_max_temperature = lv_image_create(tab_forecast);
-  lv_image_set_src(weather_image_max_temperature, &image_weather_temperature);
-  lv_obj_align(weather_image_max_temperature, LV_ALIGN_CENTER, 68, -60);
-  lv_obj_set_style_image_recolor(weather_image_max_temperature, lv_palette_main(LV_PALETTE_RED), 0);
-  lv_obj_set_style_image_recolor_opa(weather_image_max_temperature, LV_OPA_COVER, 0);
-  forecast_weather.text_label_max_temperature = lv_label_create(tab_forecast);
-  lv_obj_align(forecast_weather.text_label_max_temperature, LV_ALIGN_CENTER, 112, -60);
-  lv_obj_set_style_text_font((lv_obj_t*) forecast_weather.text_label_max_temperature, &lv_font_montserrat_18, 0);
 
   lv_obj_t * weather_image_min_temperature = lv_image_create(tab_forecast);
   lv_image_set_src(weather_image_min_temperature, &image_weather_temperature);
-  lv_obj_align(weather_image_min_temperature, LV_ALIGN_CENTER, 68, -30);
+  lv_obj_align(weather_image_min_temperature, LV_ALIGN_CENTER, TEMPERATURE_IMAGE_POS_X, TEMPERATURE_IMAGE_POS_Y);
   lv_obj_set_style_image_recolor(weather_image_min_temperature, lv_palette_main(LV_PALETTE_BLUE), 0);
   lv_obj_set_style_image_recolor_opa(weather_image_min_temperature, LV_OPA_COVER, 0);
   forecast_weather.text_label_min_temperature = lv_label_create(tab_forecast);
-  lv_obj_align(forecast_weather.text_label_min_temperature, LV_ALIGN_CENTER, 112, -30);
+  lv_obj_align(forecast_weather.text_label_min_temperature, LV_ALIGN_CENTER, TEMPERATURE_IMAGE_POS_X + ICONS_TEXT_PADDING, TEMPERATURE_IMAGE_POS_Y);
   lv_obj_set_style_text_font((lv_obj_t*) forecast_weather.text_label_min_temperature, &lv_font_montserrat_18, 0);
+
+  lv_obj_t * weather_image_max_temperature = lv_image_create(tab_forecast);
+  lv_image_set_src(weather_image_max_temperature, &image_weather_temperature);
+  lv_obj_align(weather_image_max_temperature, LV_ALIGN_CENTER, HUMIDITY_IMAGE_POS_X, HUMIDITY_IMAGE_POS_Y);
+  lv_obj_set_style_image_recolor(weather_image_max_temperature, lv_palette_main(LV_PALETTE_RED), 0);
+  lv_obj_set_style_image_recolor_opa(weather_image_max_temperature, LV_OPA_COVER, 0);
+  forecast_weather.text_label_max_temperature = lv_label_create(tab_forecast);
+  lv_obj_align(forecast_weather.text_label_max_temperature, LV_ALIGN_CENTER, HUMIDITY_IMAGE_POS_X + ICONS_TEXT_PADDING, HUMIDITY_IMAGE_POS_Y);
+  lv_obj_set_style_text_font((lv_obj_t*) forecast_weather.text_label_max_temperature, &lv_font_montserrat_18, 0);
 
   Serial.println("Image and label for humidity");
   lv_obj_t * weather_image_humidity = lv_image_create(tab_current);
   lv_image_set_src(weather_image_humidity, &image_weather_humidity);
-  lv_obj_align(weather_image_humidity, LV_ALIGN_CENTER, -92, -30);
+  lv_obj_align(weather_image_humidity, LV_ALIGN_CENTER, HUMIDITY_IMAGE_POS_X, HUMIDITY_IMAGE_POS_Y);
   lv_obj_set_style_image_recolor(weather_image_humidity, lv_palette_main(LV_PALETTE_CYAN), 0);
   lv_obj_set_style_image_recolor_opa(weather_image_humidity, LV_OPA_COVER, 0);
   current_weather.text_label_humidity = lv_label_create(tab_current);
-  lv_obj_align(current_weather.text_label_humidity, LV_ALIGN_CENTER, -42, -30);
+  lv_obj_align(current_weather.text_label_humidity, LV_ALIGN_CENTER, HUMIDITY_IMAGE_POS_X + ICONS_TEXT_PADDING, HUMIDITY_IMAGE_POS_Y);
   lv_obj_set_style_text_font((lv_obj_t*) current_weather.text_label_humidity, &lv_font_montserrat_18, 0);
 
   Serial.println("Label for weather description");
   current_weather.text_label_weather_description = lv_label_create(tab_current);
-  lv_obj_align(current_weather.text_label_weather_description, LV_ALIGN_CENTER, -100, 0);
-  lv_obj_set_style_text_font((lv_obj_t*) current_weather.text_label_weather_description, &lv_font_montserrat_12, 0);
+  lv_obj_set_style_text_align(current_weather.text_label_weather_description, LV_TEXT_ALIGN_LEFT, 0);
+  lv_obj_set_width(current_weather.text_label_weather_description, 150);
+  lv_label_set_long_mode(current_weather.text_label_weather_description, LV_LABEL_LONG_WRAP);
+  lv_obj_align(current_weather.text_label_weather_description, LV_ALIGN_CENTER, WEATHER_DESCRIPTION_POS_X, WEATHER_DESCRIPTION_POS_Y);
+  lv_obj_set_style_text_font((lv_obj_t*) current_weather.text_label_weather_description, &lv_font_montserrat_16, 0);
 
   forecast_weather.text_label_weather_description = lv_label_create(tab_forecast);
-  lv_obj_align(forecast_weather.text_label_weather_description, LV_ALIGN_CENTER, 60, 0);
-  lv_obj_set_style_text_font((lv_obj_t*) forecast_weather.text_label_weather_description, &lv_font_montserrat_12, 0);
+  lv_obj_set_style_text_align(forecast_weather.text_label_weather_description, LV_TEXT_ALIGN_LEFT, 0);
+  lv_obj_set_width(forecast_weather.text_label_weather_description, 150);
+  lv_label_set_long_mode(forecast_weather.text_label_weather_description, LV_LABEL_LONG_WRAP);
+  lv_obj_align(forecast_weather.text_label_weather_description, LV_ALIGN_CENTER, WEATHER_DESCRIPTION_POS_X, WEATHER_DESCRIPTION_POS_Y);
+  lv_obj_set_style_text_font((lv_obj_t*) forecast_weather.text_label_weather_description, &lv_font_montserrat_16, 0);
 
   // Create a text label for the time and timezone aligned center in the bottom of the screen
   Serial.println("Label for time and location");
   current_weather.text_label_time_location = lv_label_create(scr);
-  lv_obj_align(current_weather.text_label_time_location, LV_ALIGN_BOTTOM_MID, 0, 0);
+  lv_obj_align(current_weather.text_label_time_location, LV_ALIGN_BOTTOM_MID, 0, -5);
   lv_obj_set_style_text_font((lv_obj_t*) current_weather.text_label_time_location, &lv_font_montserrat_12, 0);
   lv_obj_set_style_text_color((lv_obj_t*) current_weather.text_label_time_location, lv_palette_main(LV_PALETTE_GREY), 0);
   
