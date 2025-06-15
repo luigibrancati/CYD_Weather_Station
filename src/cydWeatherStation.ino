@@ -24,36 +24,37 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-
-// Replace with your network credentials
-const char* ssid = "FASTWEB-FC83A5";
-const char* password = "MERHGZ6ECG";
-
-// Replace with the latitude and longitude to where you want to get the weather
-String latitude = "45.116177";
-String longitude = "7.742615";
-// Enter your location
-String location = "Turin";
-// Type the timezone you want to get the time for
-String timezone = "Europe/Rome";
-
-// Store date and time
-String current_date;
-String last_weather_update;
-float temperature;
-float humidity;
-bool is_day;
-int weather_code = 0;
-String weather_description;
-
-// SET VARIABLE TO 0 FOR TEMPERATURE IN FAHRENHEIT DEGREES
-const char degree_symbol[] = "\u00B0C";
+#include <XPT2046_Touchscreen.h>
 
 #define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 320
+// Touchscreen pins
+#define XPT2046_IRQ 36   // T_IRQ
+#define XPT2046_MOSI 32  // T_DIN
+#define XPT2046_MISO 39  // T_OUT
+#define XPT2046_CLK 25   // T_CLK
+#define XPT2046_CS 33    // T_CS
 
 #define DRAW_BUF_SIZE (SCREEN_WIDTH * SCREEN_HEIGHT / 10 * (LV_COLOR_DEPTH / 8))
+
+// SET VARIABLE TO 0 FOR TEMPERATURE IN FAHRENHEIT DEGREES
+static const char degree_symbol[] = "\u00B0C";
 uint32_t draw_buf[DRAW_BUF_SIZE / 4];
+
+const char* ssid = "FASTWEB-FC83A5";
+const char* password = "MERHGZ6ECG";
+String latitude = "45.07049768682";
+String longitude = "7.68682";
+String location = "Turin";
+String timezone = "Europe/Rome";
+
+SPIClass touchscreenSPI = SPIClass(VSPI);
+XPT2046_Touchscreen touchscreen(XPT2046_CS, XPT2046_IRQ);
+
+int x, y, z;
+lv_obj_t * tabview;
+lv_obj_t * tab_current;
+lv_obj_t * tab_forecast;
 
 // If logging is enabled, it will inform the user about what is happening in the library
 void log_print(lv_log_level_t level, const char * buf) {
@@ -62,18 +63,298 @@ void log_print(lv_log_level_t level, const char * buf) {
   Serial.flush();
 }
 
-static lv_obj_t * weather_image;
-static lv_obj_t * text_label_date;
-static lv_obj_t * text_label_temperature;
-static lv_obj_t * text_label_humidity;
-static lv_obj_t * text_label_weather_description;
-static lv_obj_t * text_label_time_location;
+// Get the Touchscreen data
+void touchscreen_read(lv_indev_t * indev, lv_indev_data_t * data) {
+  // Checks if Touchscreen was touched, and prints X, Y and Pressure (Z)
+  if(touchscreen.tirqTouched() && touchscreen.touched()) {
+    // Get Touchscreen points
+    TS_Point p = touchscreen.getPoint();
+    // Calibrate Touchscreen points with map function to the correct width and height
+    x = map(p.x, 200, 3700, 1, SCREEN_WIDTH);
+    y = map(p.y, 240, 3800, 1, SCREEN_HEIGHT);
+    z = p.z;
 
-void get_weather_data() {
+    data->state = LV_INDEV_STATE_PRESSED;
+
+    // Set the coordinates
+    data->point.x = x;
+    data->point.y = y;
+
+    // Print Touchscreen info about X, Y and Pressure (Z) on the Serial Monitor
+    Serial.print("X = ");
+    Serial.print(x);
+    Serial.print(" | Y = ");
+    Serial.print(y);
+    Serial.print(" | Pressure = ");
+    Serial.print(z);
+    Serial.println();
+  }
+  else {
+    data->state = LV_INDEV_STATE_RELEASED;
+  }
+}
+
+struct Weather {
+  String weather_description;
+  lv_obj_t * weather_image;
+  lv_obj_t * text_label_weather_description;
+
+  Weather(){
+    weather_image = nullptr;
+    text_label_weather_description = nullptr;
+  };
+
+  virtual void update_fields(const JsonDocument& doc) = 0;
+
+  /*
+    WMO Weather interpretation codes (WW)- Code	Description
+    0	Clear sky
+    1, 2, 3	Mainly clear, partly cloudy, and overcast
+    45, 48	Fog and depositing rime fog
+    51, 53, 55	Drizzle: Light, moderate, and dense intensity
+    56, 57	Freezing Drizzle: Light and dense intensity
+    61, 63, 65	Rain: Slight, moderate and heavy intensity
+    66, 67	Freezing Rain: Light and heavy intensity
+    71, 73, 75	Snow fall: Slight, moderate, and heavy intensity
+    77	Snow grains
+    80, 81, 82	Rain showers: Slight, moderate, and violent
+    85, 86	Snow showers slight and heavy
+    95 *	Thunderstorm: Slight or moderate
+    96, 99 *	Thunderstorm with slight and heavy hail
+  */
+  void get_weather_description(bool is_day, int weather_code) {
+    switch (weather_code) {
+      case 0:
+        if(is_day==1) {
+          lv_image_set_src(this->weather_image, &image_weather_sun); }
+        else { lv_image_set_src(this->weather_image, &image_weather_night); }
+        this->weather_description = "CLEAR SKY";
+        break;
+      case 1: 
+        if(is_day==1) { lv_image_set_src(this->weather_image, &image_weather_sun); }
+        else { lv_image_set_src(this->weather_image, &image_weather_night); }
+        this->weather_description = "MAINLY CLEAR";
+        break;
+      case 2: 
+        lv_image_set_src(this->weather_image, &image_weather_cloud);
+        this->weather_description = "PARTLY CLOUDY";
+        break;
+      case 3:
+        lv_image_set_src(this->weather_image, &image_weather_cloud);
+        this->weather_description = "OVERCAST";
+        break;
+      case 45:
+        lv_image_set_src(this->weather_image, &image_weather_cloud);
+        this->weather_description = "FOG";
+        break;
+      case 48:
+        lv_image_set_src(this->weather_image, &image_weather_cloud);
+        this->weather_description = "DEPOSITING RIME FOG";
+        break;
+      case 51:
+        lv_image_set_src(this->weather_image, &image_weather_rain);
+        this->weather_description = "DRIZZLE LIGHT INTENSITY";
+        break;
+      case 53:
+        lv_image_set_src(this->weather_image, &image_weather_rain);
+        this->weather_description = "DRIZZLE MODERATE INTENSITY";
+        break;
+      case 55:
+        lv_image_set_src(this->weather_image, &image_weather_rain); 
+        this->weather_description = "DRIZZLE DENSE INTENSITY";
+        break;
+      case 56:
+        lv_image_set_src(this->weather_image, &image_weather_rain);
+        this->weather_description = "FREEZING DRIZZLE LIGHT";
+        break;
+      case 57:
+        lv_image_set_src(this->weather_image, &image_weather_rain);
+        this->weather_description = "FREEZING DRIZZLE DENSE";
+        break;
+      case 61:
+        lv_image_set_src(this->weather_image, &image_weather_rain);
+        this->weather_description = "RAIN SLIGHT INTENSITY";
+        break;
+      case 63:
+        lv_image_set_src(this->weather_image, &image_weather_rain);
+        this->weather_description = "RAIN MODERATE INTENSITY";
+        break;
+      case 65:
+        lv_image_set_src(this->weather_image, &image_weather_rain);
+        this->weather_description = "RAIN HEAVY INTENSITY";
+        break;
+      case 66:
+        lv_image_set_src(this->weather_image, &image_weather_rain);
+        this->weather_description = "FREEZING RAIN LIGHT INTENSITY";
+        break;
+      case 67:
+        lv_image_set_src(this->weather_image, &image_weather_rain);
+        this->weather_description = "FREEZING RAIN HEAVY INTENSITY";
+        break;
+      case 71:
+        lv_image_set_src(this->weather_image, &image_weather_snow);
+        this->weather_description = "SNOW FALL SLIGHT INTENSITY";
+        break;
+      case 73:
+        lv_image_set_src(this->weather_image, &image_weather_snow);
+        this->weather_description = "SNOW FALL MODERATE INTENSITY";
+        break;
+      case 75:
+        lv_image_set_src(this->weather_image, &image_weather_snow);
+        this->weather_description = "SNOW FALL HEAVY INTENSITY";
+        break;
+      case 77:
+        lv_image_set_src(this->weather_image, &image_weather_snow);
+        this->weather_description = "SNOW GRAINS";
+        break;
+      case 80:
+        lv_image_set_src(this->weather_image, &image_weather_rain);
+        this->weather_description = "RAIN SHOWERS SLIGHT";
+        break;
+      case 81:
+        lv_image_set_src(this->weather_image, &image_weather_rain);
+        this->weather_description = "RAIN SHOWERS MODERATE";
+        break;
+      case 82:
+        lv_image_set_src(this->weather_image, &image_weather_rain);
+        this->weather_description = "RAIN SHOWERS VIOLENT";
+        break;
+      case 85:
+        lv_image_set_src(this->weather_image, &image_weather_snow);
+        this->weather_description = "SNOW SHOWERS SLIGHT";
+        break;
+      case 86:
+        lv_image_set_src(this->weather_image, &image_weather_snow);
+        this->weather_description = "SNOW SHOWERS HEAVY";
+        break;
+      case 95:
+        lv_image_set_src(this->weather_image, &image_weather_thunder);
+        this->weather_description = "THUNDERSTORM";
+        break;
+      case 96:
+        lv_image_set_src(this->weather_image, &image_weather_thunder);
+        this->weather_description = "THUNDERSTORM SLIGHT HAIL";
+        break;
+      case 99:
+        lv_image_set_src(this->weather_image, &image_weather_thunder);
+        this->weather_description = "THUNDERSTORM HEAVY HAIL";
+        break;
+      default: 
+        this->weather_description = "UNKNOWN WEATHER CODE";
+        break;
+    }
+  }
+};
+
+// Store date and time
+struct CurrentWeather : Weather {
+  String last_weather_update;
+  bool is_day;
+  float temperature;
+  float humidity;
+  short weather_code;
+  float apparent_temperature;
+  lv_obj_t * text_label_date;
+  lv_obj_t * text_label_temperature;
+  lv_obj_t * text_label_humidity;
+  lv_obj_t * text_label_time_location;
+
+  CurrentWeather() {
+    text_label_date = nullptr;
+    text_label_temperature = nullptr;
+    text_label_humidity = nullptr;
+    text_label_time_location = nullptr;
+    weather_image = nullptr;
+    text_label_weather_description = nullptr;
+  };
+
+  CurrentWeather(const JsonDocument& doc):
+    CurrentWeather()
+  {
+    this->update_fields(doc);
+  }
+
+  void update_fields(const JsonDocument& doc) override {
+    const char* current_time = doc["current"]["time"];
+    this->last_weather_update = String(current_time);
+    Serial.println("Got last weather update time");
+    Serial.print("Is day print");
+    Serial.println(doc["current"]["is_day"].as<int>());
+    this->is_day = doc["current"]["is_day"].as<int>() == 1 ? true : false; // Convert to boolean
+    Serial.println("Got current is_day status");
+    this->temperature = static_cast<float>(doc["current"]["temperature_2m"]);
+    Serial.println("Got current temperature");
+    this->apparent_temperature = static_cast<float>(doc["current"]["apparent_temperature"]);
+    Serial.println("Got current apparent_temperature");
+    this->humidity = static_cast<float>(doc["current"]["relative_humidity_2m"]);
+    Serial.println("Got current humidity");
+    this->weather_code = static_cast<int>(doc["current"]["weather_code"]);
+    Serial.println("Got current weather_code");
+  }
+
+  const String last_update_day() const {
+    int splitIndex = this->last_weather_update.indexOf('T');
+    return this->last_weather_update.substring(0, splitIndex); // Extract day portion
+  }
+
+  const String last_update_time() const {
+    int splitIndex = this->last_weather_update.indexOf('T');
+    return this->last_weather_update.substring(splitIndex + 1, splitIndex + 9); // Extract time portion
+  }
+} current_weather;
+
+// Store date and time
+struct ForecastWeather : Weather {
+  bool is_rainy;
+  int max_weather_code;
+  float max_apparent_temperature;
+  float min_apparent_temperature;
+  lv_obj_t * text_label_max_temperature;
+  lv_obj_t * text_label_min_temperature;
+
+  ForecastWeather() {
+    weather_image = nullptr;
+    text_label_weather_description = nullptr;
+    text_label_max_temperature = nullptr;
+    text_label_min_temperature = nullptr;
+  };
+
+  ForecastWeather(const JsonDocument& doc):
+    ForecastWeather()
+  {
+    this->update_fields(doc);
+  }
+
+  void update_fields(const JsonDocument& doc) {
+    Serial.println("Update forecast weather fields");
+    this->max_weather_code = doc["hourly"]["weather_code"][0];
+    this->max_apparent_temperature = doc["hourly"]["apparent_temperature"][0];
+    this->min_apparent_temperature = doc["hourly"]["apparent_temperature"][0];
+    this->is_rainy = false; // Default to no rain
+    for (unsigned short i = 0; i < 24; i++) {
+      if (doc["hourly"]["apparent_temperature"][i] > this->max_apparent_temperature) {
+        this->max_apparent_temperature = doc["hourly"]["apparent_temperature"][i];
+      } else if (doc["hourly"]["apparent_temperature"][i] < this->min_apparent_temperature) {
+        this->min_apparent_temperature = doc["hourly"]["apparent_temperature"][i];
+      }
+      if (doc["hourly"]["precipitation_probability"][i] > 50) {
+        this->is_rainy = true; // If any hour has a precipitation probability greater than 50%, it will rain
+      }
+      if (doc["hourly"]["weather_code"][i] > this->max_weather_code) {
+        this->max_weather_code = doc["hourly"]["weather_code"][i];
+      }
+    }
+  }
+  
+} forecast_weather;
+
+JsonDocument get_weather_data() {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
     // Construct the API endpoint
-    String url = String("http://api.open-meteo.com/v1/forecast?latitude=" + latitude + "&longitude=" + longitude + "&current=temperature_2m,relative_humidity_2m,is_day,precipitation,rain,weather_code&timezone=" + timezone + "&forecast_days=1");
+    String url = String(
+      "http://api.open-meteo.com/v1/forecast?latitude=" + latitude + "&longitude=" + longitude + "&current=relative_humidity_2m,temperature_2m,weather_code,apparent_temperature&hourly=relative_humidity_2m,precipitation_probability,temperature_2m,apparent_temperature,weather_code&timezone=" + timezone + "&forecast_days=3"
+    );
     Serial.print("Connecting to Open Meteo API");
     Serial.println(url);
     http.begin(url);
@@ -81,41 +362,17 @@ void get_weather_data() {
     int httpCode = http.GET(); // Make the GET request
 
     if (httpCode > 0) {
-      Serial.println("httpcode > 0");
       // Check for the response
       if (httpCode == HTTP_CODE_OK) {
-        Serial.println("httpcode OK");
-        Serial.println("Getting string");
+        Serial.println("Got response from Open Meteo API");
         String payload = http.getString();
-        //Serial.println("Request information:");
-        //Serial.println(payload);
-        // Parse the JSON to extract the time
-        Serial.println("Got string");
+        Serial.println("Getting payload as string");
         JsonDocument doc;
         Serial.println("Deserializing JSON");
         DeserializationError error = deserializeJson(doc, payload);
         if (!error) {
           Serial.println("No error in deserialization");
-          const char* datetime = doc["current"]["time"];
-          Serial.println("Got datetime");
-          temperature = static_cast<float>(doc["current"]["temperature_2m"]);
-          Serial.println("Got temperature");
-          humidity = static_cast<float>(doc["current"]["relative_humidity_2m"]);
-          Serial.println("Got humidity");
-          is_day = static_cast<bool>(doc["current"]["is_day"]);
-          Serial.println("Got is_day");
-          weather_code = static_cast<int>(doc["current"]["weather_code"]);
-          Serial.println("Got weather_code");
-          Serial.println(temperature);
-          Serial.println(humidity);
-          Serial.println(is_day);
-          Serial.println(weather_code);
-          Serial.println(String(timezone));
-          // Split the datetime into date and time
-          String datetime_str = String(datetime);
-          int splitIndex = datetime_str.indexOf('T');
-          current_date = datetime_str.substring(0, splitIndex);
-          last_weather_update = datetime_str.substring(splitIndex + 1, splitIndex + 9); // Extract time portion
+          return doc;
         } else {
           Serial.print("deserializeJson() failed: ");
           Serial.println(error.c_str());
@@ -131,156 +388,36 @@ void get_weather_data() {
   } else {
     Serial.println("Not connected to Wi-Fi");
   }
+  return JsonDocument{}; // Return empty object if not connected to Wi-Fi
 }
 
-/*
-  WMO Weather interpretation codes (WW)- Code	Description
-  0	Clear sky
-  1, 2, 3	Mainly clear, partly cloudy, and overcast
-  45, 48	Fog and depositing rime fog
-  51, 53, 55	Drizzle: Light, moderate, and dense intensity
-  56, 57	Freezing Drizzle: Light and dense intensity
-  61, 63, 65	Rain: Slight, moderate and heavy intensity
-  66, 67	Freezing Rain: Light and heavy intensity
-  71, 73, 75	Snow fall: Slight, moderate, and heavy intensity
-  77	Snow grains
-  80, 81, 82	Rain showers: Slight, moderate, and violent
-  85, 86	Snow showers slight and heavy
-  95 *	Thunderstorm: Slight or moderate
-  96, 99 *	Thunderstorm with slight and heavy hail
-*/
-void get_weather_description(int code) {
-  switch (code) {
-    case 0:
-      if(is_day==1) { lv_image_set_src(weather_image, &image_weather_sun); }
-      else { lv_image_set_src(weather_image, &image_weather_night); }
-      weather_description = "CLEAR SKY";
-      break;
-    case 1: 
-      if(is_day==1) { lv_image_set_src(weather_image, &image_weather_sun); }
-      else { lv_image_set_src(weather_image, &image_weather_night); }
-      weather_description = "MAINLY CLEAR";
-      break;
-    case 2: 
-      lv_image_set_src(weather_image, &image_weather_cloud);
-      weather_description = "PARTLY CLOUDY";
-      break;
-    case 3:
-      lv_image_set_src(weather_image, &image_weather_cloud);
-      weather_description = "OVERCAST";
-      break;
-    case 45:
-      lv_image_set_src(weather_image, &image_weather_cloud);
-      weather_description = "FOG";
-      break;
-    case 48:
-      lv_image_set_src(weather_image, &image_weather_cloud);
-      weather_description = "DEPOSITING RIME FOG";
-      break;
-    case 51:
-      lv_image_set_src(weather_image, &image_weather_rain);
-      weather_description = "DRIZZLE LIGHT INTENSITY";
-      break;
-    case 53:
-      lv_image_set_src(weather_image, &image_weather_rain);
-      weather_description = "DRIZZLE MODERATE INTENSITY";
-      break;
-    case 55:
-      lv_image_set_src(weather_image, &image_weather_rain); 
-      weather_description = "DRIZZLE DENSE INTENSITY";
-      break;
-    case 56:
-      lv_image_set_src(weather_image, &image_weather_rain);
-      weather_description = "FREEZING DRIZZLE LIGHT";
-      break;
-    case 57:
-      lv_image_set_src(weather_image, &image_weather_rain);
-      weather_description = "FREEZING DRIZZLE DENSE";
-      break;
-    case 61:
-      lv_image_set_src(weather_image, &image_weather_rain);
-      weather_description = "RAIN SLIGHT INTENSITY";
-      break;
-    case 63:
-      lv_image_set_src(weather_image, &image_weather_rain);
-      weather_description = "RAIN MODERATE INTENSITY";
-      break;
-    case 65:
-      lv_image_set_src(weather_image, &image_weather_rain);
-      weather_description = "RAIN HEAVY INTENSITY";
-      break;
-    case 66:
-      lv_image_set_src(weather_image, &image_weather_rain);
-      weather_description = "FREEZING RAIN LIGHT INTENSITY";
-      break;
-    case 67:
-      lv_image_set_src(weather_image, &image_weather_rain);
-      weather_description = "FREEZING RAIN HEAVY INTENSITY";
-      break;
-    case 71:
-      lv_image_set_src(weather_image, &image_weather_snow);
-      weather_description = "SNOW FALL SLIGHT INTENSITY";
-      break;
-    case 73:
-      lv_image_set_src(weather_image, &image_weather_snow);
-      weather_description = "SNOW FALL MODERATE INTENSITY";
-      break;
-    case 75:
-      lv_image_set_src(weather_image, &image_weather_snow);
-      weather_description = "SNOW FALL HEAVY INTENSITY";
-      break;
-    case 77:
-      lv_image_set_src(weather_image, &image_weather_snow);
-      weather_description = "SNOW GRAINS";
-      break;
-    case 80:
-      lv_image_set_src(weather_image, &image_weather_rain);
-      weather_description = "RAIN SHOWERS SLIGHT";
-      break;
-    case 81:
-      lv_image_set_src(weather_image, &image_weather_rain);
-      weather_description = "RAIN SHOWERS MODERATE";
-      break;
-    case 82:
-      lv_image_set_src(weather_image, &image_weather_rain);
-      weather_description = "RAIN SHOWERS VIOLENT";
-      break;
-    case 85:
-      lv_image_set_src(weather_image, &image_weather_snow);
-      weather_description = "SNOW SHOWERS SLIGHT";
-      break;
-    case 86:
-      lv_image_set_src(weather_image, &image_weather_snow);
-      weather_description = "SNOW SHOWERS HEAVY";
-      break;
-    case 95:
-      lv_image_set_src(weather_image, &image_weather_thunder);
-      weather_description = "THUNDERSTORM";
-      break;
-    case 96:
-      lv_image_set_src(weather_image, &image_weather_thunder);
-      weather_description = "THUNDERSTORM SLIGHT HAIL";
-      break;
-    case 99:
-      lv_image_set_src(weather_image, &image_weather_thunder);
-      weather_description = "THUNDERSTORM HEAVY HAIL";
-      break;
-    default: 
-      weather_description = "UNKNOWN WEATHER CODE";
-      break;
-  }
-}
-
-static void timer_cb(lv_timer_t * timer){
-  Serial.println("Timer callback called");
+static void update_data(lv_timer_t * timer){
+  Serial.println("Update data timer callback");
+  Serial.println("Get the weather data from open-meteo.com API");
   LV_UNUSED(timer);
-  get_weather_data();
-  get_weather_description(weather_code);
-  lv_label_set_text(text_label_date, current_date.c_str());
-  lv_label_set_text(text_label_temperature, String("      " + String(temperature) + degree_symbol).c_str());
-  lv_label_set_text(text_label_humidity, String("   " + String(humidity) + "%").c_str());
-  lv_label_set_text(text_label_weather_description, weather_description.c_str());
-  lv_label_set_text(text_label_time_location, String("Last Update: " + last_weather_update + "  |  " + location).c_str());
+  JsonDocument doc = get_weather_data();
+  if (doc.isNull()) {
+    Serial.println("Failed to get weather data");
+    return;
+  } else {
+    Serial.println("Got weather data");
+    // Update current weather data
+    Serial.println("Update current");
+    current_weather.update_fields(doc);
+    current_weather.get_weather_description(current_weather.is_day, current_weather.weather_code);
+    lv_label_set_text(current_weather.text_label_date, current_weather.last_update_day().c_str());
+    lv_label_set_text(current_weather.text_label_temperature, String(String(current_weather.temperature) + degree_symbol).c_str());
+    lv_label_set_text(current_weather.text_label_humidity, String(String(current_weather.humidity) + "%").c_str());
+    lv_label_set_text(current_weather.text_label_weather_description, current_weather.weather_description.c_str());
+    lv_label_set_text(current_weather.text_label_time_location, String("Last Update: " + current_weather.last_update_time() + "  |  " + location).c_str());
+    // Update the forecast weather data
+    Serial.println("Update forecast");
+    forecast_weather.update_fields(doc);
+    forecast_weather.get_weather_description(current_weather.is_day, forecast_weather.max_weather_code);
+    lv_label_set_text(forecast_weather.text_label_max_temperature, String(String(forecast_weather.max_apparent_temperature) + degree_symbol).c_str());
+    lv_label_set_text(forecast_weather.text_label_min_temperature, String(String(forecast_weather.min_apparent_temperature) + degree_symbol).c_str());
+    lv_label_set_text(forecast_weather.text_label_weather_description, forecast_weather.weather_description.c_str());
+  }
 }
 
 void lv_create_main_gui(void) {
@@ -294,58 +431,79 @@ void lv_create_main_gui(void) {
   LV_IMAGE_DECLARE(image_weather_temperature);
   LV_IMAGE_DECLARE(image_weather_humidity);
 
-  // Get the weather data from open-meteo.com API
-  Serial.println("Get the weather data from open-meteo.com API");
-  get_weather_data();
-
   Serial.println("Create the main screen");
   lv_obj_t * scr = lv_screen_active();
-  weather_image = lv_image_create(scr);
-  lv_obj_align(weather_image, LV_ALIGN_CENTER, -80, -20);
 
-  Serial.println("Create the main screen");
-  get_weather_description(weather_code);
+  /*Create a Tab view object*/
+  tabview = lv_tabview_create(scr);
 
-  Serial.println("Labels for date, temperature, humidity, weather description and time location");
-  text_label_date = lv_label_create(scr);
-  lv_label_set_text(text_label_date, current_date.c_str());
-  lv_obj_align(text_label_date, LV_ALIGN_CENTER, 70, -70);
-  lv_obj_set_style_text_font((lv_obj_t*) text_label_date, &lv_font_montserrat_26, 0);
-  lv_obj_set_style_text_color((lv_obj_t*) text_label_date, lv_palette_main(LV_PALETTE_CYAN), 0);
+  /*Add 3 tabs (the tabs are page (lv_page) and can be scrolled*/
+  tab_current = lv_tabview_add_tab(tabview, "Current");
+  tab_forecast = lv_tabview_add_tab(tabview, "Forecast");
+
+  Serial.println("Labels for date");
+  current_weather.text_label_date = lv_label_create(tab_current);
+  lv_obj_align(current_weather.text_label_date, LV_ALIGN_CENTER, 0, -100);
+  lv_obj_set_style_text_font((lv_obj_t*) current_weather.text_label_date, &lv_font_montserrat_26, 0);
+  lv_obj_set_style_text_color((lv_obj_t*) current_weather.text_label_date, lv_palette_main(LV_PALETTE_CYAN), 0);
+
+  Serial.println("Image and label for current weather");
+  current_weather.weather_image = lv_image_create(tab_current);
+  lv_image_set_scale(current_weather.weather_image, 96);
+  lv_obj_align(current_weather.weather_image, LV_ALIGN_CENTER, -130, -50);
+
+  forecast_weather.weather_image = lv_image_create(tab_forecast);
+  lv_image_set_scale(forecast_weather.weather_image, 96);
+  lv_obj_align(forecast_weather.weather_image, LV_ALIGN_CENTER, 30, -50);
 
   Serial.println("Image and label for temperature");
-  lv_obj_t * weather_image_temperature = lv_image_create(scr);
+  lv_obj_t * weather_image_temperature = lv_image_create(tab_current);
   lv_image_set_src(weather_image_temperature, &image_weather_temperature);
-  lv_obj_align(weather_image_temperature, LV_ALIGN_CENTER, 30, -25);
-  text_label_temperature = lv_label_create(scr);
-  lv_label_set_text(text_label_temperature, String("      " + String(temperature) + degree_symbol).c_str());
-  lv_obj_align(text_label_temperature, LV_ALIGN_CENTER, 70, -25);
-  lv_obj_set_style_text_font((lv_obj_t*) text_label_temperature, &lv_font_montserrat_22, 0);
+  lv_obj_align(weather_image_temperature, LV_ALIGN_CENTER, -92, -60);
+  current_weather.text_label_temperature = lv_label_create(tab_current);
+  lv_obj_align(current_weather.text_label_temperature, LV_ALIGN_CENTER, -42, -60);
+  lv_obj_set_style_text_font((lv_obj_t*) current_weather.text_label_temperature, &lv_font_montserrat_18, 0);
+
+  lv_obj_t * weather_image_max_temperature = lv_image_create(tab_forecast);
+  lv_image_set_src(weather_image_max_temperature, &image_weather_temperature);
+  lv_obj_align(weather_image_max_temperature, LV_ALIGN_CENTER, 68, -60);
+  forecast_weather.text_label_max_temperature = lv_label_create(tab_forecast);
+  lv_obj_align(forecast_weather.text_label_max_temperature, LV_ALIGN_CENTER, 112, -60);
+  lv_obj_set_style_text_font((lv_obj_t*) forecast_weather.text_label_max_temperature, &lv_font_montserrat_18, 0);
+
+  lv_obj_t * weather_image_min_temperature = lv_image_create(tab_forecast);
+  lv_image_set_src(weather_image_min_temperature, &image_weather_temperature);
+  lv_obj_align(weather_image_min_temperature, LV_ALIGN_CENTER, 68, -30);
+  forecast_weather.text_label_min_temperature = lv_label_create(tab_forecast);
+  lv_obj_align(forecast_weather.text_label_min_temperature, LV_ALIGN_CENTER, 112, -30);
+  lv_obj_set_style_text_font((lv_obj_t*) forecast_weather.text_label_min_temperature, &lv_font_montserrat_18, 0);
 
   Serial.println("Image and label for humidity");
-  lv_obj_t * weather_image_humidity = lv_image_create(scr);
+  lv_obj_t * weather_image_humidity = lv_image_create(tab_current);
   lv_image_set_src(weather_image_humidity, &image_weather_humidity);
-  lv_obj_align(weather_image_humidity, LV_ALIGN_CENTER, 30, 20);
-  text_label_humidity = lv_label_create(scr);
-  lv_label_set_text(text_label_humidity, String("   " + String(humidity) + "%").c_str());
-  lv_obj_align(text_label_humidity, LV_ALIGN_CENTER, 70, 20);
-  lv_obj_set_style_text_font((lv_obj_t*) text_label_humidity, &lv_font_montserrat_22, 0);
+  lv_obj_align(weather_image_humidity, LV_ALIGN_CENTER, -92, -30);
+  current_weather.text_label_humidity = lv_label_create(tab_current);
+  lv_obj_align(current_weather.text_label_humidity, LV_ALIGN_CENTER, -42, -30);
+  lv_obj_set_style_text_font((lv_obj_t*) current_weather.text_label_humidity, &lv_font_montserrat_18, 0);
 
   Serial.println("Label for weather description");
-  text_label_weather_description = lv_label_create(scr);
-  lv_label_set_text(text_label_weather_description, weather_description.c_str());
-  lv_obj_align(text_label_weather_description, LV_ALIGN_BOTTOM_MID, 0, -40);
-  lv_obj_set_style_text_font((lv_obj_t*) text_label_weather_description, &lv_font_montserrat_18, 0);
+  current_weather.text_label_weather_description = lv_label_create(tab_current);
+  lv_obj_align(current_weather.text_label_weather_description, LV_ALIGN_CENTER, -100, 0);
+  lv_obj_set_style_text_font((lv_obj_t*) current_weather.text_label_weather_description, &lv_font_montserrat_12, 0);
+
+  forecast_weather.text_label_weather_description = lv_label_create(tab_forecast);
+  lv_obj_align(forecast_weather.text_label_weather_description, LV_ALIGN_CENTER, 60, 0);
+  lv_obj_set_style_text_font((lv_obj_t*) forecast_weather.text_label_weather_description, &lv_font_montserrat_12, 0);
 
   // Create a text label for the time and timezone aligned center in the bottom of the screen
   Serial.println("Label for time and location");
-  text_label_time_location = lv_label_create(scr);
-  lv_label_set_text(text_label_time_location, String("Last Update: " + last_weather_update + "  |  " + location).c_str());
-  lv_obj_align(text_label_time_location, LV_ALIGN_BOTTOM_MID, 0, -10);
-  lv_obj_set_style_text_font((lv_obj_t*) text_label_time_location, &lv_font_montserrat_12, 0);
-  lv_obj_set_style_text_color((lv_obj_t*) text_label_time_location, lv_palette_main(LV_PALETTE_GREY), 0);
+  current_weather.text_label_time_location = lv_label_create(scr);
+  lv_obj_align(current_weather.text_label_time_location, LV_ALIGN_BOTTOM_MID, 0, 0);
+  lv_obj_set_style_text_font((lv_obj_t*) current_weather.text_label_time_location, &lv_font_montserrat_12, 0);
+  lv_obj_set_style_text_color((lv_obj_t*) current_weather.text_label_time_location, lv_palette_main(LV_PALETTE_GREY), 0);
   
-  lv_timer_t * timer = lv_timer_create(timer_cb, 60000, NULL);
+  update_data(NULL);
+  lv_timer_t * timer = lv_timer_create(update_data, 60000, NULL);
   lv_timer_ready(timer);
 }
 
@@ -371,6 +529,14 @@ void setup() {
   Serial.println("Register print function for debugging");
   lv_log_register_print_cb(log_print);
 
+  // Start the SPI for the touchscreen and init the touchscreen
+  Serial.println("Start the SPI for the touchscreen and init the touchscreen");
+  touchscreenSPI.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
+  touchscreen.begin(touchscreenSPI);
+  // Set the Touchscreen rotation in landscape mode
+  // Note: in some displays, the touchscreen might be upside down, so you might need to set the rotation to 0: touchscreen.setRotation(0);
+  touchscreen.setRotation(2);
+
   // Create a display object
   Serial.println("Create a display object");
   lv_display_t * disp;
@@ -379,17 +545,14 @@ void setup() {
   disp = lv_tft_espi_create(SCREEN_WIDTH, SCREEN_HEIGHT, draw_buf, sizeof(draw_buf));
   Serial.println("Rotate the display to 270 degrees");
   lv_display_set_rotation(disp, LV_DISPLAY_ROTATION_270);
+  // Initialize an LVGL input device object (Touchscreen)
+  lv_indev_t * indev = lv_indev_create();
+  lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
+  // Set the callback function to read Touchscreen input
+  lv_indev_set_read_cb(indev, touchscreen_read);
   // Function to draw the GUI
   Serial.println("Draw the GUI");
   lv_create_main_gui();
-  // Set the background color of the screen
-  lv_obj_t * scr = lv_screen_active();
-	// lv_obj_set_style_bg_color(scr, lv_palette_main(LV_PALETTE_RED), LV_PART_MAIN);
-  static lv_style_t style_scr;
-  lv_style_init(&style_scr);
-  lv_style_set_bg_color(&style_scr, lv_color_hex(0xFFFF442B));
-  lv_obj_add_style(scr, &style_scr, 0);
-  Serial.println("Ended setup() function");
 }
 
 void loop() {
