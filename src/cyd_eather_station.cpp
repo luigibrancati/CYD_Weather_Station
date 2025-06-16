@@ -119,16 +119,16 @@ void update_data(lv_timer_t * timer){
     current_weather.update_fields(doc);
     current_weather.get_weather_description(current_weather.is_day, current_weather.weather_code);
     lv_label_set_text(current_weather.text_label_date, current_weather.last_update_day().c_str());
-    lv_label_set_text(current_weather.text_label_temperature, String(String(current_weather.temperature) + degree_symbol).c_str());
-    lv_label_set_text(current_weather.text_label_humidity, String(String(current_weather.humidity) + "%").c_str());
+    lv_label_set_text(current_weather.text_label_temperature, (String(current_weather.temperature) + degree_symbol).c_str());
+    lv_label_set_text(current_weather.text_label_humidity, (String(current_weather.humidity) + "%").c_str());
     lv_label_set_text(current_weather.text_label_weather_description, current_weather.weather_description.c_str());
     lv_label_set_text(current_weather.text_label_time_location, String("Last Update: " + current_weather.last_update_time() + "  |  " + location).c_str());
     // Update the forecast weather data
     Serial.println("Update forecast");
     forecast_weather.update_fields(doc);
     forecast_weather.get_weather_description(current_weather.is_day, forecast_weather.max_weather_code);
-    lv_label_set_text(forecast_weather.text_label_max_temperature, String(String(forecast_weather.max_apparent_temperature) + degree_symbol).c_str());
-    lv_label_set_text(forecast_weather.text_label_min_temperature, String(String(forecast_weather.min_apparent_temperature) + degree_symbol).c_str());
+    lv_label_set_text(forecast_weather.text_label_max_temperature, (String(forecast_weather.max_apparent_temperature) + degree_symbol).c_str());
+    lv_label_set_text(forecast_weather.text_label_min_temperature, (String(forecast_weather.min_apparent_temperature) + degree_symbol).c_str());
     lv_label_set_text(forecast_weather.text_label_weather_description, forecast_weather.weather_description.c_str());
   }
 }
@@ -235,20 +235,51 @@ void lv_create_main_gui(void) {
   lv_timer_ready(timer);
 }
 
+void connect_to_wifi() {
+  unsigned long wait_time = 60000;
+  unsigned long start = millis();
+  lv_obj_t* wifi_label = lv_label_create(lv_screen_active());
+  lv_obj_set_width(wifi_label, 300);
+  lv_label_set_long_mode(wifi_label, LV_LABEL_LONG_WRAP);
+  lv_obj_align(wifi_label, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_set_style_text_font(wifi_label, &lv_font_montserrat_18, 0);
+  lv_obj_set_style_text_color(wifi_label, lv_palette_main(LV_PALETTE_GREY), 0);
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to wifi");
+  String wifi_text = String("Connecting to Wi-Fi");
+  lv_label_set_text(wifi_label, wifi_text.c_str());
+  lv_task_handler();  // let the GUI do its work
+  lv_tick_inc(0);     // tell LVGL how much time has passed
+  delay(500);
+  while (WiFi.status() != WL_CONNECTED && (millis() - start < wait_time)) {
+    Serial.print(".");
+    wifi_text += ".";
+    lv_label_set_text(wifi_label, wifi_text.c_str());
+    lv_task_handler();  // let the GUI do its work
+    lv_tick_inc(500);     // tell LVGL how much time has passed
+    delay(500);
+  }
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("\nConnected to Wi-Fi network with IP Address: ");
+    Serial.println(WiFi.localIP());
+    lv_obj_clean(lv_screen_active());  // Clear the screen to remove the Wi-Fi label
+    lv_task_handler();  // let the GUI do its work
+    lv_tick_inc(0);     // tell LVGL how much time has passed
+    // Function to draw the GUI
+    Serial.println("Draw the GUI");
+    lv_create_main_gui();
+    return;
+  } else {
+    Serial.println("Failed to connect to Wi-Fi");
+    lv_label_set_text(wifi_label, "Failed to connect to Wi-Fi");
+    return;
+  }
+}
+
 void setup() {
   String LVGL_Arduino = String("LVGL Library Version: ") + lv_version_major() + "." + lv_version_minor() + "." + lv_version_patch();
   Serial.begin(115200);
   Serial.println(LVGL_Arduino);
-
-  // Connect to Wi-Fi
-  WiFi.begin(ssid, password);
-  Serial.print("Connecting");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.print("\nConnected to Wi-Fi network with IP Address: ");
-  Serial.println(WiFi.localIP());
   
   // Start LVGL
   Serial.println("Init LVGL");
@@ -278,9 +309,8 @@ void setup() {
   lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
   // Set the callback function to read Touchscreen input
   lv_indev_set_read_cb(indev, touchscreen_read);
-  // Function to draw the GUI
-  Serial.println("Draw the GUI");
-  lv_create_main_gui();
+  // Connect to wifi
+  connect_to_wifi();
 }
 
 void loop() {
