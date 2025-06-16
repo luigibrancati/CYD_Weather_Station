@@ -11,13 +11,13 @@ Weather::Weather(){
 void Weather::get_weather_description(bool is_day, int weather_code) {
   switch (weather_code) {
     case 0:
-      if(is_day==1) {
+      if(is_day) {
         lv_image_set_src(this->weather_image, &image_weather_sun); }
       else { lv_image_set_src(this->weather_image, &image_weather_night); }
       this->weather_description = "CLEAR SKY";
       break;
     case 1: 
-      if(is_day==1) { lv_image_set_src(this->weather_image, &image_weather_sun); }
+      if(is_day) { lv_image_set_src(this->weather_image, &image_weather_sun); }
       else { lv_image_set_src(this->weather_image, &image_weather_night); }
       this->weather_description = "MAINLY CLEAR";
       break;
@@ -151,9 +151,7 @@ void CurrentWeather::update_fields(const JsonDocument& doc) {
   const char* current_time = doc["current"]["time"];
   this->last_weather_update = String(current_time);
   Serial.println("Got last weather update time");
-  Serial.print("Is day print");
-  Serial.println(doc["current"]["is_day"].as<int>());
-  this->is_day = doc["current"]["is_day"].as<int>() == 1 ? true : false; // Convert to boolean
+  this->is_day = static_cast<int>(doc["current"]["is_day"]) == 1 ? true : false; // Convert to boolean
   Serial.println("Got current is_day status");
   this->temperature = static_cast<float>(doc["current"]["temperature_2m"]);
   Serial.println("Got current temperature");
@@ -163,6 +161,7 @@ void CurrentWeather::update_fields(const JsonDocument& doc) {
   Serial.println("Got current humidity");
   this->weather_code = static_cast<int>(doc["current"]["weather_code"]);
   Serial.println("Got current weather_code");
+  this->print(); // Print the current weather data for debugging
 }
 
 const String CurrentWeather::last_update_day() const {
@@ -173,6 +172,22 @@ const String CurrentWeather::last_update_day() const {
 const String CurrentWeather::last_update_time() const {
   int splitIndex = this->last_weather_update.indexOf('T');
   return this->last_weather_update.substring(splitIndex + 1, splitIndex + 9); // Extract time portion
+}
+
+void CurrentWeather::print() const {
+  Serial.println("Current Weather:");
+  Serial.print("Last Update: ");
+  Serial.println(this->last_weather_update);
+  Serial.print("Is Day: ");
+  Serial.println(this->is_day);
+  Serial.print("Temperature: ");
+  Serial.print(this->temperature);
+  Serial.print("Apparent Temperature: ");
+  Serial.print(this->apparent_temperature);
+  Serial.print("Humidity: ");
+  Serial.print(this->humidity);
+  Serial.print("Weather Code: ");
+  Serial.println(this->weather_code);
 }
 
 ForecastWeather::ForecastWeather() {
@@ -207,6 +222,19 @@ void ForecastWeather::update_fields(const JsonDocument& doc) {
       this->max_weather_code = doc["hourly"]["weather_code"][i];
     }
   }
+  this->print(); // Print the current weather data for debugging
+}
+
+void ForecastWeather::print() const {
+  Serial.println("Forecast Weather:");
+  Serial.print("Rainy: ");
+  Serial.println(this->is_rainy);
+  Serial.print("Max weather code: ");
+  Serial.println(this->max_weather_code);
+  Serial.print("Max temperature: ");
+  Serial.print(this->max_apparent_temperature);
+  Serial.print("Min temperature: ");
+  Serial.print(this->min_apparent_temperature);
 }
 
 JsonDocument get_weather_data() {
@@ -214,7 +242,7 @@ JsonDocument get_weather_data() {
     HTTPClient http;
     // Construct the API endpoint
     String url = String(
-      "http://api.open-meteo.com/v1/forecast?latitude=" + latitude + "&longitude=" + longitude + "&current=relative_humidity_2m,temperature_2m,weather_code,apparent_temperature&hourly=relative_humidity_2m,precipitation_probability,temperature_2m,apparent_temperature,weather_code&timezone=" + timezone + "&forecast_days=1"
+      "https://api.open-meteo.com/v1/forecast?latitude=" + latitude + "&longitude=" + longitude + "&current=relative_humidity_2m,temperature_2m,weather_code,apparent_temperature,is_day&hourly=precipitation_probability,apparent_temperature,weather_code&timezone=" + timezone + "&forecast_days=1"
     );
     Serial.print("Connecting to Open Meteo API");
     Serial.println(url);
@@ -227,7 +255,8 @@ JsonDocument get_weather_data() {
       if (httpCode == HTTP_CODE_OK) {
         Serial.println("Got response from Open Meteo API");
         String payload = http.getString();
-        Serial.println("Getting payload as string");
+        Serial.print("Got payload: ");
+        Serial.println(payload);
         JsonDocument doc;
         Serial.println("Deserializing JSON");
         DeserializationError error = deserializeJson(doc, payload);

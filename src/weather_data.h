@@ -40,6 +40,7 @@ struct CurrentWeather : Weather {
   void update_fields(const JsonDocument&) override;
   const String last_update_day() const;
   const String last_update_time() const;
+  void print() const;
 };
 
 // Store date and time
@@ -54,6 +55,7 @@ struct ForecastWeather : Weather {
   ForecastWeather();
   ForecastWeather(const JsonDocument&);
   void update_fields(const JsonDocument&);
+  void print() const;
 };
 
 JsonDocument get_weather_data();
