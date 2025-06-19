@@ -53,8 +53,7 @@ struct DailyWeather : Weather {
   String sunset;
   float max_wind_speed;
   float max_precipitation_probability;
-  lv_obj_t * text_label_max_apparent_temperature;
-  lv_obj_t * text_label_min_apparent_temperature;
+  lv_obj_t * text_label_apparent_temperature_range;
   lv_obj_t * text_label_sunrise;
   lv_obj_t * text_label_sunset;
   lv_obj_t * text_label_max_wind_speed;
