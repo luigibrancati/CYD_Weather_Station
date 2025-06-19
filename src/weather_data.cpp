@@ -8,7 +8,9 @@ Weather::Weather(){
   text_label_weather_description = nullptr;
 };
 
-void Weather::get_weather_description(bool is_day, int weather_code) {
+void Weather::get_weather_description(bool is_day, short weather_code) {
+  Serial.print("Get weather description for code ");
+  Serial.println(weather_code);
   switch (weather_code) {
     case 0:
       if(is_day) {
@@ -26,7 +28,9 @@ void Weather::get_weather_description(bool is_day, int weather_code) {
       this->weather_description = "PARTLY CLOUDY";
       break;
     case 3:
+      Serial.println("Weather code 3");
       lv_image_set_src(this->weather_image, &image_weather_cloud);
+      Serial.println("Set weather image to cloud");
       this->weather_description = "OVERCAST";
       break;
     case 45:
@@ -133,10 +137,9 @@ void Weather::get_weather_description(bool is_day, int weather_code) {
 
 // Store date and time
 CurrentWeather::CurrentWeather() {
-  text_label_date = nullptr;
-  text_label_temperature = nullptr;
+  text_label_apparent_temperature = nullptr;
   text_label_humidity = nullptr;
-  text_label_time_location = nullptr;
+  text_label_wind_speed = nullptr;
   weather_image = nullptr;
   text_label_weather_description = nullptr;
 };
@@ -144,97 +147,97 @@ CurrentWeather::CurrentWeather() {
 CurrentWeather::CurrentWeather(const JsonDocument& doc):
   CurrentWeather()
 {
-  this->update_fields(doc);
+  this->update_fields(doc, 0);
 }
 
-void CurrentWeather::update_fields(const JsonDocument& doc) {
-  const char* current_time = doc["current"]["time"];
-  this->last_weather_update = String(current_time);
-  Serial.println("Got last weather update time");
+void CurrentWeather::update_fields(const JsonDocument& doc, int idx) {
+  Serial.println("Update current weather fields from document: " + doc.as<String>());
   this->is_day = static_cast<int>(doc["current"]["is_day"]) == 1 ? true : false; // Convert to boolean
   Serial.println("Got current is_day status");
-  this->temperature = static_cast<float>(doc["current"]["temperature_2m"]);
-  Serial.println("Got current temperature");
   this->apparent_temperature = static_cast<float>(doc["current"]["apparent_temperature"]);
   Serial.println("Got current apparent_temperature");
   this->humidity = static_cast<float>(doc["current"]["relative_humidity_2m"]);
   Serial.println("Got current humidity");
+  this->wind_speed = static_cast<float>(doc["current"]["wind_speed_10m"]);
+  Serial.println("Got wind speed");
   this->weather_code = static_cast<int>(doc["current"]["weather_code"]);
   Serial.println("Got current weather_code");
   this->print(); // Print the current weather data for debugging
 }
 
-const String CurrentWeather::last_update_day() const {
-  int splitIndex = this->last_weather_update.indexOf('T');
-  return this->last_weather_update.substring(0, splitIndex); // Extract day portion
-}
-
-const String CurrentWeather::last_update_time() const {
-  int splitIndex = this->last_weather_update.indexOf('T');
-  return this->last_weather_update.substring(splitIndex + 1, splitIndex + 9); // Extract time portion
-}
-
 void CurrentWeather::print() const {
   Serial.println("Current Weather:");
-  Serial.print("Last Update: ");
-  Serial.println(this->last_weather_update);
   Serial.print("Is Day: ");
   Serial.println(this->is_day);
-  Serial.print("Temperature: ");
-  Serial.print(this->temperature);
   Serial.print("Apparent Temperature: ");
-  Serial.print(this->apparent_temperature);
+  Serial.println(this->apparent_temperature);
   Serial.print("Humidity: ");
-  Serial.print(this->humidity);
+  Serial.println(this->humidity);
+  Serial.print("Wind speed: ");
+  Serial.println(this->wind_speed);
   Serial.print("Weather Code: ");
   Serial.println(this->weather_code);
 }
 
-ForecastWeather::ForecastWeather() {
+DailyWeather::DailyWeather() {
+  text_label_max_apparent_temperature = nullptr;
+  text_label_min_apparent_temperature = nullptr;
+  text_label_sunrise = nullptr;
+  text_label_sunset = nullptr;
+  text_label_max_wind_speed = nullptr;
+  text_label_max_precipitation_probability = nullptr;
   weather_image = nullptr;
   text_label_weather_description = nullptr;
-  text_label_max_temperature = nullptr;
-  text_label_min_temperature = nullptr;
 };
 
-ForecastWeather::ForecastWeather(const JsonDocument& doc):
-  ForecastWeather()
+DailyWeather::DailyWeather(const JsonDocument& doc, int idx):
+  DailyWeather()
 {
-  this->update_fields(doc);
+  this->update_fields(doc, idx);
 }
 
-void ForecastWeather::update_fields(const JsonDocument& doc) {
-  Serial.println("Update forecast weather fields");
-  this->max_weather_code = doc["hourly"]["weather_code"][0];
-  this->max_apparent_temperature = doc["hourly"]["apparent_temperature"][0];
-  this->min_apparent_temperature = doc["hourly"]["apparent_temperature"][0];
-  this->is_rainy = false; // Default to no rain
-  for (unsigned short i = 0; i < 24; i++) {
-    if (doc["hourly"]["apparent_temperature"][i] > this->max_apparent_temperature) {
-      this->max_apparent_temperature = doc["hourly"]["apparent_temperature"][i];
-    } else if (doc["hourly"]["apparent_temperature"][i] < this->min_apparent_temperature) {
-      this->min_apparent_temperature = doc["hourly"]["apparent_temperature"][i];
-    }
-    if (doc["hourly"]["precipitation_probability"][i] > 50) {
-      this->is_rainy = true; // If any hour has a precipitation probability greater than 50%, it will rain
-    }
-    if (doc["hourly"]["weather_code"][i] > this->max_weather_code) {
-      this->max_weather_code = doc["hourly"]["weather_code"][i];
-    }
-  }
+void DailyWeather::update_fields(const JsonDocument& doc, int idx) {
+  this->idx = idx; // Store the index for later use
+  Serial.println("Update daily weather fields with index: " + String(this->idx) + " from document: " + doc.as<String>());
+  Serial.println("Set weather code");
+  this->weather_code = doc["daily"]["weather_code"][this->idx];
+  Serial.println("Set temp max");
+  this->max_apparent_temperature = doc["daily"]["apparent_temperature_max"][this->idx];
+  Serial.println("Set temp min");
+  this->min_apparent_temperature = doc["daily"]["apparent_temperature_min"][this->idx];
+  Serial.println("Set sunrise");
+  this->sunrise = String(doc["daily"]["sunrise"][this->idx].as<const char*>());
+  Serial.println("Set sunset");
+  this->sunset = String(doc["daily"]["sunset"][this->idx].as<const char*>());
+  Serial.println("Set wind");
+  this->max_wind_speed = doc["daily"]["wind_speed_10m_max"][this->idx];
+  Serial.println("Set max precipitation probability");
+  this->max_precipitation_probability = doc["daily"]["precipitation_probability_max"][this->idx];
+  Serial.println("Set rainy");
+  this->is_rainy = this->max_precipitation_probability > 50;
   this->print(); // Print the current weather data for debugging
 }
 
-void ForecastWeather::print() const {
-  Serial.println("Forecast Weather:");
+void DailyWeather::print() const {
+  Serial.println("Daily Weather:");
+  Serial.print("Index: ");
+  Serial.println(this->idx);
+  Serial.print("Weather code: ");
+  Serial.println(this->weather_code);
+  Serial.print("Max apparent temperature: ");
+  Serial.println(this->max_apparent_temperature);
+  Serial.print("Min apparent temperature: ");
+  Serial.println(this->min_apparent_temperature);
+  Serial.print("Sunrise: ");
+  Serial.println(this->sunrise);
+  Serial.print("Sunset: ");
+  Serial.println(this->sunset);
+  Serial.print("Max wind speed: ");
+  Serial.println(this->max_wind_speed);
+  Serial.print("Max precipitation probability: ");
+  Serial.println(this->max_precipitation_probability);
   Serial.print("Rainy: ");
   Serial.println(this->is_rainy);
-  Serial.print("Max weather code: ");
-  Serial.println(this->max_weather_code);
-  Serial.print("Max temperature: ");
-  Serial.print(this->max_apparent_temperature);
-  Serial.print("Min temperature: ");
-  Serial.print(this->min_apparent_temperature);
 }
 
 JsonDocument get_weather_data() {
@@ -242,7 +245,8 @@ JsonDocument get_weather_data() {
     HTTPClient http;
     // Construct the API endpoint
     String url = String(
-      "https://api.open-meteo.com/v1/forecast?latitude=" + latitude + "&longitude=" + longitude + "&current=relative_humidity_2m,temperature_2m,weather_code,apparent_temperature,is_day&hourly=precipitation_probability,apparent_temperature,weather_code&timezone=" + timezone + "&forecast_days=1"
+      base_url + "&current=wind_speed_10m,apparent_temperature,relative_humidity_2m,is_day,weather_code" +
+      "&daily=apparent_temperature_max,apparent_temperature_min,weather_code,sunrise,sunset,precipitation_probability_max,wind_speed_10m_max"
     );
     Serial.print("Connecting to Open Meteo API");
     Serial.println(url);
@@ -279,4 +283,25 @@ JsonDocument get_weather_data() {
     Serial.println("Not connected to Wi-Fi");
   }
   return JsonDocument{}; // Return empty object if not connected to Wi-Fi
+}
+
+String datetime_string_date(String datetime) {
+  Serial.print("Extracting date from datetime: ");
+  Serial.println(datetime);
+  int splitIndex = datetime.indexOf('T');
+  return datetime.substring(0, splitIndex); // Extract day portion
+}
+
+String datetime_string_time(String datetime) {
+  Serial.print("Extracting time from datetime: ");
+  Serial.println(datetime);
+  int splitIndex = datetime.indexOf('T');
+  return datetime.substring(splitIndex + 1, splitIndex + 9); // Extract time portion
+}
+
+String update_last_weather_update(const JsonDocument& doc) {
+  const char* current_time = doc["current"]["time"];
+  Serial.print("Current time from document: ");
+  Serial.println(current_time);
+  return String(current_time);
 }

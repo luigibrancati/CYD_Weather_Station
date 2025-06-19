@@ -11,6 +11,9 @@ static const String latitude = "45.07049768682";
 static const String longitude = "7.68682";
 static const String timezone = "Europe/Rome";
 static const String location = "Turin";
+static const String base_url = "https://api.open-meteo.com/v1/forecast?latitude=" + latitude + "&longitude=" + longitude + "&timezone=" + timezone + "&forecast_days=3";
+static String last_weather_update = "";
+static lv_obj_t * text_label_time_location = nullptr;
 
 struct Weather {
   String weather_description;
@@ -18,47 +21,54 @@ struct Weather {
   lv_obj_t * text_label_weather_description;
 
   Weather();
-  virtual void update_fields(const JsonDocument&) = 0;
-  void get_weather_description(bool, int);
+  virtual void update_fields(const JsonDocument&, int) = 0;
+  void get_weather_description(bool, short);
 };
 
 // Store date and time
 struct CurrentWeather : Weather {
-  String last_weather_update;
   bool is_day;
-  float temperature;
-  float humidity;
-  short weather_code;
   float apparent_temperature;
-  lv_obj_t * text_label_date;
-  lv_obj_t * text_label_temperature;
+  float humidity;
+  float wind_speed;
+  short weather_code;
+  lv_obj_t * text_label_apparent_temperature;
   lv_obj_t * text_label_humidity;
-  lv_obj_t * text_label_time_location;
+  lv_obj_t * text_label_wind_speed;
 
   CurrentWeather();
   CurrentWeather(const JsonDocument&);
-  void update_fields(const JsonDocument&) override;
-  const String last_update_day() const;
-  const String last_update_time() const;
+  void update_fields(const JsonDocument&, int) override;
   void print() const;
 };
 
 // Store date and time
-struct ForecastWeather : Weather {
+struct DailyWeather : Weather {
+  short idx;
   bool is_rainy;
-  int max_weather_code;
   float max_apparent_temperature;
   float min_apparent_temperature;
-  lv_obj_t * text_label_max_temperature;
-  lv_obj_t * text_label_min_temperature;
+  short weather_code;
+  String sunrise;
+  String sunset;
+  float max_wind_speed;
+  float max_precipitation_probability;
+  lv_obj_t * text_label_max_apparent_temperature;
+  lv_obj_t * text_label_min_apparent_temperature;
+  lv_obj_t * text_label_sunrise;
+  lv_obj_t * text_label_sunset;
+  lv_obj_t * text_label_max_wind_speed;
+  lv_obj_t * text_label_max_precipitation_probability;
 
-  ForecastWeather();
-  ForecastWeather(const JsonDocument&);
-  void update_fields(const JsonDocument&);
+  DailyWeather();
+  DailyWeather(const JsonDocument&, int);
+  void update_fields(const JsonDocument&, int) override;
   void print() const;
 };
 
 JsonDocument get_weather_data();
-void update_data(lv_timer_t*);
+String datetime_string_date(String);
+String datetime_string_time(String);
+String update_last_weather_update(const JsonDocument&);
 
 #endif // WEATHER_DATA_H
