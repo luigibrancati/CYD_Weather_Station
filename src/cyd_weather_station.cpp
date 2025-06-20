@@ -149,7 +149,8 @@ void update_data(lv_timer_t * timer) {
     today_weather.update_fields(doc, 0);
     today_weather.get_weather_description(current_weather.is_day, today_weather.weather_code);
     Serial.println("Set today labels");
-    lv_label_set_text(today_weather.text_label_apparent_temperature_range, (String(today_weather.min_apparent_temperature) + degree_symbol + "/" + String(today_weather.max_apparent_temperature) + degree_symbol).c_str());
+    lv_label_set_text(today_weather.text_label_apparent_min_temperature, (String(today_weather.min_apparent_temperature) + degree_symbol).c_str());
+    lv_label_set_text(today_weather.text_label_apparent_max_temperature, (String(today_weather.max_apparent_temperature) + degree_symbol).c_str());
     lv_label_set_text(today_weather.text_label_sunrise, datetime_string_time(today_weather.sunrise).c_str());
     lv_label_set_text(today_weather.text_label_sunset, datetime_string_time(today_weather.sunset).c_str());
     lv_label_set_text(today_weather.text_label_max_wind_speed, (String(today_weather.max_wind_speed) + " km/h").c_str());
@@ -160,7 +161,8 @@ void update_data(lv_timer_t * timer) {
     tomorrow_weather.update_fields(doc, 1);
     tomorrow_weather.get_weather_description(current_weather.is_day, tomorrow_weather.weather_code);
     Serial.println("Set tomorrow labels");
-    lv_label_set_text(tomorrow_weather.text_label_apparent_temperature_range, (String(tomorrow_weather.min_apparent_temperature)  + degree_symbol + "/" + String(tomorrow_weather.max_apparent_temperature) + degree_symbol).c_str());
+    lv_label_set_text(tomorrow_weather.text_label_apparent_min_temperature, (String(tomorrow_weather.min_apparent_temperature)  + degree_symbol).c_str());
+    lv_label_set_text(tomorrow_weather.text_label_apparent_max_temperature, (String(tomorrow_weather.max_apparent_temperature) + degree_symbol).c_str());
     lv_label_set_text(tomorrow_weather.text_label_sunrise, datetime_string_time(tomorrow_weather.sunrise).c_str());
     lv_label_set_text(tomorrow_weather.text_label_sunset, datetime_string_time(tomorrow_weather.sunset).c_str());
     lv_label_set_text(tomorrow_weather.text_label_max_wind_speed, (String(tomorrow_weather.max_wind_speed) + " km/h").c_str());
@@ -169,21 +171,24 @@ void update_data(lv_timer_t * timer) {
   }
 }
 
-void create_image_label(lv_obj_t*& label, lv_obj_t* tab, int x, int y) {
+void create_image_label(lv_obj_t*& label, lv_obj_t* tab, int x, int y, int label_width = WEATHER_DESCRIPTION_LEN, const lv_font_t* font = &lv_font_montserrat_14) {
   label = lv_label_create(tab);
   lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_LEFT, 0);
-  lv_obj_set_width(label, WEATHER_DESCRIPTION_LEN);
+  lv_obj_set_width(label, label_width);
   lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
   lv_obj_align(label, LV_ALIGN_CENTER, x, y);
-  lv_obj_set_style_text_font(label, &lv_font_montserrat_16, 0);
+  lv_obj_set_style_text_font(label, font, 0);
 }
 
 void current_weather_page(lv_obj_t*& tab) {
   Serial.println("Build the current weather page");
   Serial.println("Image and label for weather");
   current_weather.weather_image = lv_image_create(tab);
-  lv_image_set_scale(current_weather.weather_image, 220);
+  lv_image_set_scale(current_weather.weather_image, 190);
   lv_obj_align(current_weather.weather_image, LV_ALIGN_CENTER, WEATHER_IMAGE_POS_X, WEATHER_IMAGE_POS_Y);
+
+  Serial.println("Label for weather description");
+  create_image_label(current_weather.text_label_weather_description, tab, WEATHER_DESCRIPTION_POS_X, WEATHER_DESCRIPTION_POS_Y + 10, WEATHER_DESCRIPTION_LEN, &lv_font_montserrat_16);
 
   Serial.println("Image and label for temperature");
   lv_obj_t * current_weather_image_temperature = lv_image_create(tab);
@@ -191,7 +196,7 @@ void current_weather_page(lv_obj_t*& tab) {
   lv_obj_align(current_weather_image_temperature, LV_ALIGN_CENTER, TEMPERATURE_IMAGE_POS_X, TEMPERATURE_IMAGE_POS_Y);
   lv_obj_set_style_image_recolor(current_weather_image_temperature, lv_palette_main(LV_PALETTE_RED), 0);
   lv_obj_set_style_image_recolor_opa(current_weather_image_temperature, LV_OPA_COVER, 0);
-  create_image_label(current_weather.text_label_apparent_temperature, tab, TEMPERATURE_IMAGE_POS_X + ICONS_TEXT_PADDING, TEMPERATURE_IMAGE_POS_Y);
+  create_image_label(current_weather.text_label_apparent_temperature, tab, TEMPERATURE_IMAGE_POS_X - 30 + ICONS_TEXT_PADDING, TEMPERATURE_IMAGE_POS_Y, 80, &lv_font_montserrat_16);
 
   Serial.println("Image and label for humidity");
   lv_obj_t * weather_image_humidity = lv_image_create(tab);
@@ -199,7 +204,7 @@ void current_weather_page(lv_obj_t*& tab) {
   lv_obj_align(weather_image_humidity, LV_ALIGN_CENTER, HUMIDITY_IMAGE_POS_X, HUMIDITY_IMAGE_POS_Y);
   lv_obj_set_style_image_recolor(weather_image_humidity, lv_palette_main(LV_PALETTE_CYAN), 0);
   lv_obj_set_style_image_recolor_opa(weather_image_humidity, LV_OPA_COVER, 0);
-  create_image_label(current_weather.text_label_humidity, tab, HUMIDITY_IMAGE_POS_X + ICONS_TEXT_PADDING, HUMIDITY_IMAGE_POS_Y);
+  create_image_label(current_weather.text_label_humidity, tab, HUMIDITY_IMAGE_POS_X - 30 + ICONS_TEXT_PADDING, HUMIDITY_IMAGE_POS_Y, 80, &lv_font_montserrat_16);
 
   Serial.println("Image and label for wind speed");
   lv_obj_t * weather_image_wind = lv_image_create(tab);
@@ -207,10 +212,7 @@ void current_weather_page(lv_obj_t*& tab) {
   lv_obj_align(weather_image_wind, LV_ALIGN_CENTER, WIND_IMAGE_POS_X, WIND_IMAGE_POS_Y);
   lv_obj_set_style_image_recolor(weather_image_wind, lv_palette_main(LV_PALETTE_TEAL), 0);
   lv_obj_set_style_image_recolor_opa(weather_image_wind, LV_OPA_COVER, 0);
-  create_image_label(current_weather.text_label_wind_speed, tab, WIND_IMAGE_POS_X + ICONS_TEXT_PADDING, WIND_IMAGE_POS_Y);
-
-  Serial.println("Label for weather description");
-  create_image_label(current_weather.text_label_weather_description, tab, WEATHER_DESCRIPTION_POS_X, WEATHER_DESCRIPTION_POS_Y);
+  create_image_label(current_weather.text_label_wind_speed, tab, WIND_IMAGE_POS_X - 15 + ICONS_TEXT_PADDING, WIND_IMAGE_POS_Y, 110, &lv_font_montserrat_16);
 }
 
 void day_weather_page(DailyWeather& weather, lv_obj_t*& tab){
@@ -220,42 +222,51 @@ void day_weather_page(DailyWeather& weather, lv_obj_t*& tab){
   lv_image_set_scale(weather.weather_image, 128);
   lv_obj_align(weather.weather_image, LV_ALIGN_CENTER, WEATHER_IMAGE_POS_X - 20, WEATHER_IMAGE_POS_Y);
 
+  Serial.println("Label for weather description");
+  create_image_label(weather.text_label_weather_description, tab, WEATHER_DESCRIPTION_POS_X - 10, WEATHER_DESCRIPTION_POS_Y, WEATHER_DESCRIPTION_LEN, &lv_font_montserrat_12);
+
   Serial.println("Image and label for temperature");
+  lv_obj_t * weather_image_low_temperature = lv_image_create(tab);
+  lv_image_set_src(weather_image_low_temperature, &image_weather_temperature_low);
+  lv_obj_align(weather_image_low_temperature, LV_ALIGN_CENTER, TEMPERATURE_IMAGE_POS_X - 20, TEMPERATURE_IMAGE_POS_Y);
+  lv_obj_set_style_image_recolor(weather_image_low_temperature, lv_palette_main(LV_PALETTE_BLUE), 0);
+  lv_obj_set_style_image_recolor_opa(weather_image_low_temperature, LV_OPA_COVER, 0);
+  create_image_label(weather.text_label_apparent_min_temperature, tab, TEMPERATURE_IMAGE_POS_X - 50 + ICONS_TEXT_PADDING, TEMPERATURE_IMAGE_POS_Y, 80);
+
   lv_obj_t * weather_image_temperature = lv_image_create(tab);
-  lv_image_set_src(weather_image_temperature, &image_weather_temperature_lowhigh);
-  lv_obj_align(weather_image_temperature, LV_ALIGN_CENTER, TEMPERATURE_IMAGE_POS_X - 30, TEMPERATURE_IMAGE_POS_Y);
-  lv_obj_set_style_image_recolor(weather_image_temperature, lv_palette_main(LV_PALETTE_ORANGE), 0);
+  lv_image_set_src(weather_image_temperature, &image_weather_temperature);
+  lv_obj_align(weather_image_temperature, LV_ALIGN_CENTER, TEMPERATURE_IMAGE_POS_X + 70, TEMPERATURE_IMAGE_POS_Y);
+  lv_obj_set_style_image_recolor(weather_image_temperature, lv_palette_main(LV_PALETTE_RED), 0);
   lv_obj_set_style_image_recolor_opa(weather_image_temperature, LV_OPA_COVER, 0);
-  create_image_label(weather.text_label_apparent_temperature_range, tab, TEMPERATURE_IMAGE_POS_X - 30 + ICONS_TEXT_PADDING, TEMPERATURE_IMAGE_POS_Y);  
+  create_image_label(weather.text_label_apparent_max_temperature, tab, TEMPERATURE_IMAGE_POS_X + 20 + ICONS_TEXT_PADDING, TEMPERATURE_IMAGE_POS_Y, 60);  
 
   Serial.println("Image and label for max wind speed");
   lv_obj_t * image_wind_speed = lv_image_create(tab);
   lv_image_set_src(image_wind_speed, &image_weather_wind);
-  lv_obj_align(image_wind_speed, LV_ALIGN_CENTER, HUMIDITY_IMAGE_POS_X - 30, HUMIDITY_IMAGE_POS_Y);
+  lv_obj_align(image_wind_speed, LV_ALIGN_CENTER, HUMIDITY_IMAGE_POS_X - 20, HUMIDITY_IMAGE_POS_Y);
   lv_obj_set_style_image_recolor(image_wind_speed, lv_palette_main(LV_PALETTE_TEAL), 0);
   lv_obj_set_style_image_recolor_opa(image_wind_speed, LV_OPA_COVER, 0);
-  create_image_label(weather.text_label_max_wind_speed, tab, HUMIDITY_IMAGE_POS_X - 30 + ICONS_TEXT_PADDING, HUMIDITY_IMAGE_POS_Y);
-
-  Serial.println("Label for weather description");
-  create_image_label(weather.text_label_weather_description, tab, WEATHER_DESCRIPTION_POS_X - 10, WEATHER_DESCRIPTION_POS_Y);
+  create_image_label(weather.text_label_max_wind_speed, tab, HUMIDITY_IMAGE_POS_X - 35 + ICONS_TEXT_PADDING, HUMIDITY_IMAGE_POS_Y, 110);
 
   Serial.println("Label for precipitation probability");
   lv_obj_t * image_precipitation_probability = lv_image_create(tab);
   lv_image_set_scale(image_precipitation_probability, 128);
   lv_image_set_src(image_precipitation_probability, &image_weather_precipitation_prob);
-  lv_obj_align(image_precipitation_probability, LV_ALIGN_CENTER, WIND_IMAGE_POS_X - 30, WIND_IMAGE_POS_Y);
-  create_image_label(weather.text_label_max_precipitation_probability, tab, WIND_IMAGE_POS_X - 30 + ICONS_TEXT_PADDING, WIND_IMAGE_POS_Y);
+  lv_obj_align(image_precipitation_probability, LV_ALIGN_CENTER, WIND_IMAGE_POS_X - 20, WIND_IMAGE_POS_Y);
+  create_image_label(weather.text_label_max_precipitation_probability, tab, WIND_IMAGE_POS_X - 50 + ICONS_TEXT_PADDING, WIND_IMAGE_POS_Y, 80);
 
   Serial.println("Label for sunrise and sunset");
   lv_obj_t * image_sunrise = lv_image_create(tab);
+  lv_image_set_scale(image_sunrise, 200);
   lv_image_set_src(image_sunrise, &image_weather_sunrise);
-  lv_obj_align(image_sunrise, LV_ALIGN_CENTER, WIND_IMAGE_POS_X - 30, WIND_IMAGE_POS_Y - 30);
-  create_image_label(weather.text_label_sunrise, tab, WIND_IMAGE_POS_X - 30 + ICONS_TEXT_PADDING, WIND_IMAGE_POS_Y - 30);
+  lv_obj_align(image_sunrise, LV_ALIGN_CENTER, WIND_IMAGE_POS_X - 20, WIND_IMAGE_POS_Y + 30);
+  create_image_label(weather.text_label_sunrise, tab, WIND_IMAGE_POS_X - 45 + ICONS_TEXT_PADDING, WIND_IMAGE_POS_Y + 30, 80);
 
   lv_obj_t * image_sunset = lv_image_create(tab);
+  lv_image_set_scale(image_sunset, 200);
   lv_image_set_src(image_sunset, &image_weather_sunset);
-  lv_obj_align(image_sunset, LV_ALIGN_CENTER, WIND_IMAGE_POS_X - 10, WIND_IMAGE_POS_Y - 30);
-  create_image_label(weather.text_label_sunset, tab, WIND_IMAGE_POS_X - 10 + ICONS_TEXT_PADDING, WIND_IMAGE_POS_Y - 30);
+  lv_obj_align(image_sunset, LV_ALIGN_CENTER, WIND_IMAGE_POS_X + 70, WIND_IMAGE_POS_Y + 30);
+  create_image_label(weather.text_label_sunset, tab, WIND_IMAGE_POS_X + 30 + ICONS_TEXT_PADDING, WIND_IMAGE_POS_Y + 30, 50);
 }
 
 void lv_create_main_gui(void) {
@@ -275,141 +286,9 @@ void lv_create_main_gui(void) {
 
   /*Create a Tab view object*/
   tabview = lv_tabview_create(scr);
-
-  /*Add 3 tabs (the tabs are page (lv_page) and can be scrolled*/
   tab_current = lv_tabview_add_tab(tabview, "Current");
   tab_today = lv_tabview_add_tab(tabview, "Today");
   tab_tomorrow = lv_tabview_add_tab(tabview, "Tomorrow");
-
-  // Serial.println("Image and label for weather");
-  // current_weather.weather_image = lv_image_create(tab_current);
-  // lv_image_set_scale(current_weather.weather_image, 220);
-  // lv_obj_align(current_weather.weather_image, LV_ALIGN_CENTER, WEATHER_IMAGE_POS_X, WEATHER_IMAGE_POS_Y);
-
-  // today_weather.weather_image = lv_image_create(tab_today);
-  // lv_image_set_scale(today_weather.weather_image, 220);
-  // lv_obj_align(today_weather.weather_image, LV_ALIGN_CENTER, WEATHER_IMAGE_POS_X, WEATHER_IMAGE_POS_Y);
-
-  // tomorrow_weather.weather_image = lv_image_create(tab_tomorrow);
-  // lv_image_set_scale(tomorrow_weather.weather_image, 220);
-  // lv_obj_align(tomorrow_weather.weather_image, LV_ALIGN_CENTER, WEATHER_IMAGE_POS_X, WEATHER_IMAGE_POS_Y);
-
-  // Serial.println("Image and label for temperature");
-  // lv_obj_t * current_weather_image_temperature = lv_image_create(tab_current);
-  // lv_image_set_src(current_weather_image_temperature, &image_weather_temperature);
-  // lv_obj_align(current_weather_image_temperature, LV_ALIGN_CENTER, TEMPERATURE_IMAGE_POS_X, TEMPERATURE_IMAGE_POS_Y);
-  // lv_obj_set_style_image_recolor(current_weather_image_temperature, lv_palette_main(LV_PALETTE_RED), 0);
-  // lv_obj_set_style_image_recolor_opa(current_weather_image_temperature, LV_OPA_COVER, 0);
-  // create_image_label(current_weather.text_label_apparent_temperature, tab_current, TEMPERATURE_IMAGE_POS_X + ICONS_TEXT_PADDING, TEMPERATURE_IMAGE_POS_Y);
-
-  // lv_obj_t * today_weather_image_min_temperature = lv_image_create(tab_today);
-  // lv_image_set_src(today_weather_image_min_temperature, &image_weather_temperature_low);
-  // lv_obj_align(today_weather_image_min_temperature, LV_ALIGN_CENTER, TEMPERATURE_IMAGE_POS_X, TEMPERATURE_IMAGE_POS_Y);
-  // lv_obj_set_style_image_recolor(today_weather_image_min_temperature, lv_palette_main(LV_PALETTE_BLUE), 0);
-  // lv_obj_set_style_image_recolor_opa(today_weather_image_min_temperature, LV_OPA_COVER, 0);
-  // create_image_label(today_weather.text_label_min_apparent_temperature, tab_today, TEMPERATURE_IMAGE_POS_X + ICONS_TEXT_PADDING, TEMPERATURE_IMAGE_POS_Y);  
-
-  // lv_obj_t * today_weather_image_max_temperature = lv_image_create(tab_today);
-  // lv_image_set_src(today_weather_image_max_temperature, &image_weather_temperature);
-  // lv_obj_align(today_weather_image_max_temperature, LV_ALIGN_CENTER, HUMIDITY_IMAGE_POS_X, HUMIDITY_IMAGE_POS_Y);
-  // lv_obj_set_style_image_recolor(today_weather_image_max_temperature, lv_palette_main(LV_PALETTE_RED), 0);
-  // lv_obj_set_style_image_recolor_opa(today_weather_image_max_temperature, LV_OPA_COVER, 0);
-  // create_image_label(today_weather.text_label_max_apparent_temperature, tab_today, HUMIDITY_IMAGE_POS_X + ICONS_TEXT_PADDING, HUMIDITY_IMAGE_POS_Y);
-
-  // lv_obj_t * tomorrow_weather_image_min_temperature = lv_image_create(tab_tomorrow);
-  // lv_image_set_src(tomorrow_weather_image_min_temperature, &image_weather_temperature_low);
-  // lv_obj_align(tomorrow_weather_image_min_temperature, LV_ALIGN_CENTER, TEMPERATURE_IMAGE_POS_X, TEMPERATURE_IMAGE_POS_Y);
-  // lv_obj_set_style_image_recolor(tomorrow_weather_image_min_temperature, lv_palette_main(LV_PALETTE_BLUE), 0);
-  // lv_obj_set_style_image_recolor_opa(tomorrow_weather_image_min_temperature, LV_OPA_COVER, 0);
-  // create_image_label(tomorrow_weather.text_label_min_apparent_temperature, tab_tomorrow, TEMPERATURE_IMAGE_POS_X + ICONS_TEXT_PADDING, TEMPERATURE_IMAGE_POS_Y);
-
-  // lv_obj_t * tomorrow_weather_image_max_temperature = lv_image_create(tab_tomorrow);
-  // lv_image_set_src(tomorrow_weather_image_max_temperature, &image_weather_temperature);
-  // lv_obj_align(tomorrow_weather_image_max_temperature, LV_ALIGN_CENTER, HUMIDITY_IMAGE_POS_X, HUMIDITY_IMAGE_POS_Y);
-  // lv_obj_set_style_image_recolor(tomorrow_weather_image_max_temperature, lv_palette_main(LV_PALETTE_RED), 0);
-  // lv_obj_set_style_image_recolor_opa(tomorrow_weather_image_max_temperature, LV_OPA_COVER, 0);
-  // create_image_label(tomorrow_weather.text_label_max_apparent_temperature, tab_tomorrow, HUMIDITY_IMAGE_POS_X + ICONS_TEXT_PADDING, HUMIDITY_IMAGE_POS_Y);
-
-  // Serial.println("Image and label for humidity");
-  // lv_obj_t * weather_image_humidity = lv_image_create(tab_current);
-  // lv_image_set_src(weather_image_humidity, &image_weather_humidity);
-  // lv_obj_align(weather_image_humidity, LV_ALIGN_CENTER, HUMIDITY_IMAGE_POS_X, HUMIDITY_IMAGE_POS_Y);
-  // lv_obj_set_style_image_recolor(weather_image_humidity, lv_palette_main(LV_PALETTE_CYAN), 0);
-  // lv_obj_set_style_image_recolor_opa(weather_image_humidity, LV_OPA_COVER, 0);
-  // create_image_label(current_weather.text_label_humidity, tab_current, HUMIDITY_IMAGE_POS_X + ICONS_TEXT_PADDING, HUMIDITY_IMAGE_POS_Y);
-
-  // Serial.println("Image and label for wind speed");
-  // lv_obj_t * weather_image_wind = lv_image_create(tab_current);
-  // lv_image_set_src(weather_image_wind, &image_weather_wind);
-  // lv_obj_align(weather_image_wind, LV_ALIGN_CENTER, WIND_IMAGE_POS_X, WIND_IMAGE_POS_Y);
-  // lv_obj_set_style_image_recolor(weather_image_wind, lv_palette_main(LV_PALETTE_TEAL), 0);
-  // lv_obj_set_style_image_recolor_opa(weather_image_wind, LV_OPA_COVER, 0);
-  // create_image_label(current_weather.text_label_wind_speed, tab_current, WIND_IMAGE_POS_X + ICONS_TEXT_PADDING, WIND_IMAGE_POS_Y);
-
-  // lv_obj_t * today_wind_speed = lv_image_create(tab_today);
-  // lv_image_set_src(today_wind_speed, &image_weather_wind);
-  // lv_obj_align(today_wind_speed, LV_ALIGN_CENTER, WIND_IMAGE_POS_X, WIND_IMAGE_POS_Y);
-  // lv_obj_set_style_image_recolor(today_wind_speed, lv_palette_main(LV_PALETTE_TEAL), 0);
-  // lv_obj_set_style_image_recolor_opa(today_wind_speed, LV_OPA_COVER, 0);
-  // create_image_label(today_weather.text_label_max_wind_speed, tab_today, WIND_IMAGE_POS_X + ICONS_TEXT_PADDING, WIND_IMAGE_POS_Y);
-
-  // lv_obj_t * tomorrow_wind_speed = lv_image_create(tab_tomorrow);
-  // lv_image_set_src(tomorrow_wind_speed, &image_weather_wind);
-  // lv_obj_align(tomorrow_wind_speed, LV_ALIGN_CENTER, WIND_IMAGE_POS_X, WIND_IMAGE_POS_Y);
-  // lv_obj_set_style_image_recolor(tomorrow_wind_speed, lv_palette_main(LV_PALETTE_TEAL), 0);
-  // lv_obj_set_style_image_recolor_opa(tomorrow_wind_speed, LV_OPA_COVER, 0);
-  // create_image_label(tomorrow_weather.text_label_max_wind_speed, tab_tomorrow, WIND_IMAGE_POS_X + ICONS_TEXT_PADDING, WIND_IMAGE_POS_Y);
-
-  // Serial.println("Label for weather description");
-  // create_image_label(current_weather.text_label_weather_description, tab_current, WEATHER_DESCRIPTION_POS_X, WEATHER_DESCRIPTION_POS_Y);
-  // create_image_label(today_weather.text_label_weather_description, tab_today, WEATHER_DESCRIPTION_POS_X, WEATHER_DESCRIPTION_POS_Y);
-  // create_image_label(tomorrow_weather.text_label_weather_description, tab_tomorrow, WEATHER_DESCRIPTION_POS_X, WEATHER_DESCRIPTION_POS_Y);
-
-  // Serial.println("Label for precipitation probability");
-  // lv_obj_t * today_precipitation_probability = lv_image_create(tab_today);
-  // lv_image_set_src(today_precipitation_probability, &image_weather_temperature_low);
-  // lv_obj_align(today_precipitation_probability, LV_ALIGN_CENTER, WIND_IMAGE_POS_X, WIND_IMAGE_POS_Y);
-  // lv_obj_set_style_image_recolor(today_precipitation_probability, lv_palette_main(LV_PALETTE_BLUE), 0);
-  // lv_obj_set_style_image_recolor_opa(today_precipitation_probability, LV_OPA_COVER, 0);
-  // create_image_label(today_weather.text_label_max_precipitation_probability, tab_today, WIND_IMAGE_POS_X + ICONS_TEXT_PADDING, WIND_IMAGE_POS_Y);
-
-
-  // lv_obj_t * tomorrow_precipitation_probability = lv_image_create(tab_tomorrow);
-  // lv_image_set_src(tomorrow_precipitation_probability, &image_weather_temperature_low);
-  // lv_obj_align(tomorrow_precipitation_probability, LV_ALIGN_CENTER, WIND_IMAGE_POS_X, WIND_IMAGE_POS_Y);
-  // lv_obj_set_style_image_recolor(tomorrow_precipitation_probability, lv_palette_main(LV_PALETTE_BLUE), 0);
-  // lv_obj_set_style_image_recolor_opa(tomorrow_precipitation_probability, LV_OPA_COVER, 0);
-  // create_image_label(tomorrow_weather.text_label_max_precipitation_probability, tab_tomorrow, WIND_IMAGE_POS_X + ICONS_TEXT_PADDING, WIND_IMAGE_POS_Y);
-
-  // Serial.println("Label for sunrise and sunset");
-
-  // lv_obj_t * today_sunrise = lv_image_create(tab_today);
-  // lv_image_set_src(today_sunrise, &image_weather_temperature_low);
-  // lv_obj_align(today_sunrise, LV_ALIGN_CENTER, WIND_IMAGE_POS_X, WIND_IMAGE_POS_Y);
-  // lv_obj_set_style_image_recolor(today_sunrise, lv_palette_main(LV_PALETTE_BLUE), 0);
-  // lv_obj_set_style_image_recolor_opa(today_sunrise, LV_OPA_COVER, 0);
-  // create_image_label(today_weather.text_label_sunrise, tab_today, WIND_IMAGE_POS_X + ICONS_TEXT_PADDING, WIND_IMAGE_POS_Y);
-
-  // lv_obj_t * tomorrow_sunrise = lv_image_create(tab_tomorrow);
-  // lv_image_set_src(tomorrow_sunrise, &image_weather_temperature_low);
-  // lv_obj_align(tomorrow_sunrise, LV_ALIGN_CENTER, WIND_IMAGE_POS_X, WIND_IMAGE_POS_Y);
-  // lv_obj_set_style_image_recolor(tomorrow_sunrise, lv_palette_main(LV_PALETTE_BLUE), 0);
-  // lv_obj_set_style_image_recolor_opa(tomorrow_sunrise, LV_OPA_COVER, 0);
-  // create_image_label(tomorrow_weather.text_label_sunrise, tab_tomorrow, WIND_IMAGE_POS_X + ICONS_TEXT_PADDING, WIND_IMAGE_POS_Y);
-
-  // lv_obj_t * today_sunset = lv_image_create(tab_today);
-  // lv_image_set_src(today_sunset, &image_weather_temperature_low);
-  // lv_obj_align(today_sunset, LV_ALIGN_CENTER, WIND_IMAGE_POS_X, WIND_IMAGE_POS_Y);
-  // lv_obj_set_style_image_recolor(today_sunset, lv_palette_main(LV_PALETTE_BLUE), 0);
-  // lv_obj_set_style_image_recolor_opa(today_sunset, LV_OPA_COVER, 0);
-  // create_image_label(today_weather.text_label_sunset, tab_today, WIND_IMAGE_POS_X + ICONS_TEXT_PADDING, WIND_IMAGE_POS_Y);
-
-  // lv_obj_t * tomorrow_sunset = lv_image_create(tab_tomorrow);
-  // lv_image_set_src(tomorrow_sunset, &image_weather_temperature_low);
-  // lv_obj_align(tomorrow_sunset, LV_ALIGN_CENTER, WIND_IMAGE_POS_X, WIND_IMAGE_POS_Y);
-  // lv_obj_set_style_image_recolor(tomorrow_sunset, lv_palette_main(LV_PALETTE_BLUE), 0);
-  // lv_obj_set_style_image_recolor_opa(tomorrow_sunset, LV_OPA_COVER, 0);
-  // create_image_label(tomorrow_weather.text_label_sunset, tab_tomorrow, TEMPERATURE_IMAGE_POS_X + ICONS_TEXT_PADDING, TEMPERATURE_IMAGE_POS_Y);
 
   current_weather_page(tab_current);
   day_weather_page(today_weather, tab_today);

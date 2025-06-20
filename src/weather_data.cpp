@@ -180,7 +180,8 @@ void CurrentWeather::print() const {
 }
 
 DailyWeather::DailyWeather() {
-  text_label_apparent_temperature_range = nullptr;
+  text_label_apparent_min_temperature = nullptr;
+  text_label_apparent_max_temperature = nullptr;
   text_label_sunrise = nullptr;
   text_label_sunset = nullptr;
   text_label_max_wind_speed = nullptr;
