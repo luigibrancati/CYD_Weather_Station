@@ -15,6 +15,7 @@
 
 #include "weather_images.h"
 #include "weather_data.h"
+#include "sensor.h"
 #include <lvgl.h>
 
 /*  Install the "TFT_eSPI" library by Bodmer to interface with the TFT Display - https://github.com/Bodmer/TFT_eSPI
@@ -70,6 +71,7 @@ lv_obj_t * tab_tomorrow;
 
 CurrentWeather current_weather;
 DailyWeather today_weather, tomorrow_weather;
+SensorData sensor_data;
 
 // If logging is enabled, it will inform the user about what is happening in the library
 void log_print(lv_log_level_t level, const char * buf) {
@@ -113,6 +115,16 @@ void update_data(lv_timer_t * timer) {
   Serial.println("Update data timer callback");
   Serial.println("Get the weather data from open-meteo.com API");
   LV_UNUSED(timer);
+  // First get data from sensor
+  sensor_data.read_sensor();
+  sensor_data.print();
+  // Then get the weather data
+  Serial.println("Get the weather data");
+  // Get the weather data from the API
+  // The get_weather_data() function returns a JsonDocument with the weather data
+  // If the JsonDocument is null, it means that the data was not retrieved successfully
+  // If the JsonDocument is not null, it means that the data was retrieved successfully
+  // The JsonDocument is then used to update the weather data on the screen
   JsonDocument doc = get_weather_data();
   if (doc.isNull()) {
     Serial.println("Failed to get weather data");
@@ -136,9 +148,9 @@ void update_data(lv_timer_t * timer) {
     current_weather.update_fields(doc, -1);
     current_weather.get_weather_description(current_weather.is_day, current_weather.weather_code);
     Serial.println("Set current weather image");
-    lv_label_set_text(current_weather.text_label_apparent_temperature, (String(current_weather.apparent_temperature) + degree_symbol).c_str());
+    lv_label_set_text(current_weather.text_label_apparent_temperature, (String(sensor_data.temperature) + degree_symbol).c_str());
     Serial.println("Set current weather temperature label");
-    lv_label_set_text(current_weather.text_label_humidity, (String(current_weather.humidity) + "%").c_str());
+    lv_label_set_text(current_weather.text_label_humidity, (String(sensor_data.humidity) + "%").c_str());
     Serial.println("Set current weather humidity label");
     lv_label_set_text(current_weather.text_label_wind_speed, (String(current_weather.wind_speed) + " km/h").c_str());
     Serial.println("Set current weather wind speed label");
@@ -350,7 +362,8 @@ void setup() {
   String LVGL_Arduino = String("LVGL Library Version: ") + lv_version_major() + "." + lv_version_minor() + "." + lv_version_patch();
   Serial.begin(115200);
   Serial.println(LVGL_Arduino);
-  
+  sensor_data.init_sensor();
+  Serial.println("Sensor initialized");
   // Start LVGL
   Serial.println("Init LVGL");
   lv_init();
